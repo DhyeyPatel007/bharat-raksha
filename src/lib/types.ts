@@ -100,13 +100,68 @@ export interface SwarmIteration {
   rebuttal_text: string;
 }
 
+export type CanonicalGapCode =
+  | "MISSING_TRACKING"
+  | "MISSING_DELIVERY_PROOF"
+  | "MISSING_SIGNATURE_HIGH_VALUE"
+  | "ADDRESS_MISMATCH"
+  | "CARRIER_MISMATCH_DIGITAL"
+  | "MISSING_MERCHANT_LOG"
+  | "MISSING_TIMESTAMP_ALIGNMENT"
+  | "MISSING_INVOICE_ITEMIZATION"
+  | "SPEC_MISMATCH_NAD"
+  | "OTHER_GAP";
+
+export type EvidenceType =
+  | "INVOICE"
+  | "TRACKING_RECEIPT"
+  | "DELIVERY_PHOTO"
+  | "CARRIER_POD"
+  | "MERCHANT_LOG"
+  | "EMAIL_CONFIRMATION"
+  | "OTHER";
+
+export type EvidenceQuality = "STRONG" | "WEAK" | "INVALID";
+
+export interface NamedGap {
+  code: CanonicalGapCode;
+  title: string;
+  summary: string;
+  citedBy: string[];
+  rawCount: number;
+  scoreImpactPts: number;
+  recommendedEvidenceType: EvidenceType;
+  resolved?: boolean;
+}
+
+export interface AttachedEvidence {
+  id: string;
+  disputeId: string;
+  fileName: string;
+  mimeType: string;
+  evidenceType: EvidenceType;
+  referenceId?: string;
+  documentDate?: string;
+  notes?: string;
+  sizeBytes: number;
+  sha256: string;
+  quality: EvidenceQuality;
+  scoreDelta: number;
+  base64Data?: string;
+  createdAt: string;
+}
+
 export interface SwarmRun {
   id: string;
   dispute_id: string;
   iterations: SwarmIteration[];
   messages: DebateMessage[];
   score: number;
+  base_score?: number;
   gaps: string[];
+  named_gaps?: NamedGap[];
+  practical_reasons?: string[];
+  attached_evidence?: AttachedEvidence[];
   verdict: Verdict;
   ev_display: EvDisplay | null;
   status: "RUNNING" | "TRIAGED" | "AWAITING_APPROVAL" | "EXECUTED" | "EXECUTION_FAILED";

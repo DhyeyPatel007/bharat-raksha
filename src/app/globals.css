@@ -302,6 +302,73 @@ button.danger {
   border-color: var(--border-hairline);
 }
 
+.badge.strong {
+  background: var(--verdict-contest-bg);
+  color: var(--verdict-contest-text);
+  border-color: var(--verdict-contest-border);
+}
+
+.badge.weak {
+  background: var(--verdict-offer-bg);
+  color: var(--verdict-offer-text);
+  border-color: var(--verdict-offer-border);
+}
+
+/* Modal & Form Controls */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal-card {
+  background: #ffffff;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-card);
+  width: 100%;
+  max-width: 540px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-ink);
+}
+
+.form-input,
+.form-select {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: var(--radius-tag);
+  border: 1px solid var(--border-hairline);
+  background: #ffffff;
+  color: var(--text-ink);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.form-input:focus,
+.form-select:focus {
+  border-color: var(--accent-ultraviolet);
+}
+
 /* Landing Structure & Hero (Glacier Blue Radial Wash) */
 .landing-page {
   width: 100%;

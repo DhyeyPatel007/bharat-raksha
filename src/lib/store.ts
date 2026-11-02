@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import type {
   Approval,
+  AttachedEvidence,
   DebateMessage,
   Dispute,
   EvidenceArtifact,
@@ -35,6 +36,7 @@ interface SeedDispute {
 interface PhalanxStoreState {
   disputes: Map<string, Dispute>;
   artifacts: Map<string, EvidenceArtifact[]>;
+  attachedEvidence: Map<string, AttachedEvidence[]>; // by dispute id
   runs: Map<string, SwarmRun[]>; // by dispute id
   approvals: Map<string, Approval>; // by dispute id (latest)
   executions: Map<string, ExecutionRecord>; // by dispute id
@@ -59,6 +61,7 @@ function getStore(): PhalanxStoreState {
     globalForPhalanx.__phalanxStore = {
       disputes: new Map(),
       artifacts: new Map(),
+      attachedEvidence: new Map(),
       runs: new Map(),
       approvals: new Map(),
       executions: new Map(),
@@ -67,6 +70,8 @@ function getStore(): PhalanxStoreState {
       webhookLog: [],
       seeded: false,
     };
+  } else if (!globalForPhalanx.__phalanxStore.attachedEvidence) {
+    globalForPhalanx.__phalanxStore.attachedEvidence = new Map();
   }
   return globalForPhalanx.__phalanxStore;
 }
@@ -74,6 +79,7 @@ function getStore(): PhalanxStoreState {
 const store = getStore();
 const disputes = store.disputes;
 const artifacts = store.artifacts;
+const attachedEvidenceMap = store.attachedEvidence;
 const runs = store.runs;
 const approvals = store.approvals;
 const executions = store.executions;
@@ -174,6 +180,38 @@ export function addArtifacts(list: EvidenceArtifact[]): void {
 /** Demo/test harness only: replace a dispute's whole artifact list. */
 export function setArtifacts(disputeId: string, list: EvidenceArtifact[]): void {
   artifacts.set(disputeId, [...list]);
+}
+
+/**
+ * Attached Evidence Methods (for Merchant Attached Bills/Files)
+ */
+export function getAttachedEvidence(disputeId: string): AttachedEvidence[] {
+  return attachedEvidenceMap.get(disputeId) ?? [];
+}
+
+export function addAttachedEvidence(disputeId: string, item: AttachedEvidence): void {
+  const cur = attachedEvidenceMap.get(disputeId) ?? [];
+  cur.push(item);
+  attachedEvidenceMap.set(disputeId, cur);
+}
+
+export function removeAttachedEvidence(disputeId: string, evidenceId: string): boolean {
+  const cur = attachedEvidenceMap.get(disputeId) ?? [];
+  const idx = cur.findIndex((x) => x.id === evidenceId);
+  if (idx >= 0) {
+    cur.splice(idx, 1);
+    attachedEvidenceMap.set(disputeId, cur);
+    return true;
+  }
+  return false;
+}
+
+export function clearAttachedEvidence(disputeId: string): void {
+  attachedEvidenceMap.set(disputeId, []);
+}
+
+export function setAttachedEvidence(disputeId: string, list: AttachedEvidence[]): void {
+  attachedEvidenceMap.set(disputeId, [...list]);
 }
 
 export function addRun(run: SwarmRun): void {
