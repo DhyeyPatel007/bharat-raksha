@@ -694,6 +694,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
         {/* 3 JUROR CARDS */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
           {caseData.juror_reports?.map((juror, idx) => {
+            const isAi = juror.source === "llm";
             return (
               <div
                 key={idx}
@@ -704,9 +705,41 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
                   padding: "18px",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                  <div style={{ fontSize: "13px", fontWeight: 800, color: "#0f172a" }}>
-                    {language === "hi" ? juror.jurorTitleHi : juror.jurorTitleEn}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px", gap: "8px" }}>
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 800, color: "#0f172a" }}>
+                      {language === "hi" ? juror.jurorTitleHi : juror.jurorTitleEn}
+                    </div>
+                    {/* Badge: AI vs Template */}
+                    <div style={{ marginTop: "4px", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          backgroundColor: isAi ? "#ecfdf5" : "#f1f5f9",
+                          color: isAi ? "#059669" : "#64748b",
+                          border: isAi ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "3px",
+                        }}
+                      >
+                        {isAi ? "✨ AI" : "📋 Template"}
+                      </span>
+                      {isAi && juror.model && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontFamily: "var(--font-mono, monospace)",
+                            color: "#64748b",
+                          }}
+                        >
+                          {juror.model.split("/").pop()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span
                     style={{
@@ -714,6 +747,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
                       fontSize: "12px",
                       fontWeight: 700,
                       color: juror.scoreContribution > 0 ? "#059669" : "#64748b",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     +{juror.scoreContribution} pts

@@ -93,6 +93,7 @@ export async function POST(
       {
         success: true,
         case: updatedCase,
+        jurorReports: updatedCase.juror_reports,
         executionSteps: [
           {
             step: "razorpay_rrn_check",

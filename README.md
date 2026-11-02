@@ -11,6 +11,15 @@ BharatRaksha provides an autonomous, pure-code adjudication shield that investig
 
 ## What It Does
 - **Root Standalone Experience (`/`):** Dedicated Indian D2C workbench with full English ↔ हिंदी bilingual localization and zero page reload.
+- **LLM Juror Swarm Layer:**
+  - 3 domain auditor personas deliberate in parallel:
+    1. `Gateway & Settlement Juror`: Payments, settlement trace, clearing reality, double-debit claims.
+    2. `Order & Logistics Telemetry Juror`: Warehouse packing scale certificates, courier hub transit weight, doorstep OTP handshake.
+    3. `Buyer History & Guardrail Juror`: Customer refund velocity, repeat empty-box strikes, merchant human approval gate.
+  - Powered by Token Factory / Nebius (`Qwen/Qwen3-30B-A3B-Instruct-2507`).
+  - **Hard Invariant:** Deterministic checklist scoring (0-100), verdict mapping, and guardrail logic remain 100% pure-code and never changed by the LLM. The LLM articulates forensic reasoning.
+  - **Airtight Output Validation:** Every LLM draft is inspected before acceptance. Any draft with hallucinated ₹ amounts, invented 12-digit RRNs, unregistered Order IDs, or length < 40 chars is rejected and falls back to deterministic templates.
+  - **UI Source Badges:** Juror cards display a `✨ AI` badge with the active model name or `📋 Template` fallback.
 - **Intake Channel:**
   - **Telegram Bot API Today:** Free, instant setup via BotFather (`/api/upi/webhooks/telegram`, `TELEGRAM_BOT_TOKEN`). Parses 12-digit UPI RRNs (`/\b(\d{12})\b/`) and Order IDs (`/\b(ORD-[A-Z0-9-]+)\b/i`), and dispatches instant status updates and refund receipts via Telegram.
   - **WhatsApp Cloud API Parked:** Parked in `src/lib/upi/whatsapp.ts` — returns when the merchant acquires an approved Meta WhatsApp Business Number.
@@ -61,7 +70,15 @@ SHIPROCKET_MODE=mock
 
 # Telegram Bot API (Optional for live outbound bot replies)
 TELEGRAM_BOT_TOKEN=
+
+# LLM Provider Configuration (Token Factory / OpenAI-compatible endpoint)
+LLM_PROVIDER=custom
+LLM_BASE_URL=https://api.tokenfactory.nebius.com/v1
+LLM_API_KEY=v1.CmQ...
+LLM_MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507
 ```
+
+> **Note for Vercel Deployment:** After pushing to GitHub, add the same 4 LLM variables (`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`) to your Vercel Project Settings (Environment Variables, Production) so the live demo at [bharatraksha.krynex.in](https://bharatraksha.krynex.in) calls the LLM during swarm runs. Each Run spends a little Token Factory credit.
 
 3. Install & Run:
 ```bash
@@ -78,7 +95,7 @@ Open [http://localhost:3000](http://localhost:3000) for the standalone BharatRak
 ```bash
 npm test
 ```
-Runs 144 unit checks + 24 UPI checks (including Telegram parser regex, guardrail approval gates, Razorpay security, and Shiprocket mock).
+Runs 144 unit checks + 34 UPI checks (including Telegram parser regex, guardrail approval gates, LLM mock draft verification, hallucination rejection, Razorpay security, and Shiprocket mock).
 
 - **Production Build:**
 ```bash

@@ -343,6 +343,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "आरआरएन 631514892011 के लिए रेज़रपे लेज़र की जांच की गई: केवल एक सफल भुगतान ₹3,200 (pay_UpiTestCaseA01)। दूसरा लेनदेन pay_UpiTestCaseA02 बैंक स्तर पर विफल हुआ; विक्रेता को केवल एक बार राशि प्राप्त हुई।",
           gapsIdentified: [],
           verdictRecommendation: "REJECT_CLAIM",
+          source: "template",
           telemetrySummary: {
             captured_count: 1,
             failed_count: 1,
@@ -360,6 +361,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "शिपराकेट AWB-SR-990101 की ट्रैकिंग पुष्टि करती है कि पार्सल 2026-11-08 को ओटीपी (4921) के साथ प्राप्त हुआ। वजन 0.85 किग्रा प्रेषण और डिलीवरी दोनों समय समान था। खाली डिब्बे का वजन 0.15 किग्रा से कम होता।",
           gapsIdentified: ["SPEC_MISMATCH_NAD"],
           verdictRecommendation: "REJECT_CLAIM",
+          source: "template",
           telemetrySummary: {
             awb: "AWB-SR-990101",
             status: "DELIVERED",
@@ -378,6 +380,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "ग्राहक फोन 9820199482 संदिग्ध श्रेणी (FLAGGED) में दर्ज है (रिफंड दर 66.7%, 2 बार खाली डिब्बे का दावा)। सुरक्षा सीमा बिना ठोस कारण के रिफंड को अस्वीकार करती है।",
           gapsIdentified: ["MISSING_MERCHANT_LOG"],
           verdictRecommendation: "REJECT_CLAIM",
+          source: "template",
           telemetrySummary: {
             risk_tier: "FLAGGED",
             refund_ratio: 0.6667,
@@ -465,6 +468,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "रेज़रपे भुगतान pay_UpiTestCaseB01 ₹1,200 हेतु सफलतापूर्वक कैप्चर किया गया है। आंशिक रिफंड हेतु पात्र।",
           gapsIdentified: [],
           verdictRecommendation: "OFFER_PARTIAL",
+          source: "template",
           telemetrySummary: { captured: true, amount_paise: 120000 },
         },
         {
@@ -478,6 +482,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "शिपराकेट AWB-SR-990102 डिलीवर हो चुका है। ग्राहक के फोटो से मामूली खरोंच की पुष्टि होती है।",
           gapsIdentified: ["SPEC_MISMATCH_NAD"],
           verdictRecommendation: "OFFER_PARTIAL",
+          source: "template",
           telemetrySummary: { awb: "AWB-SR-990102", status: "DELIVERED" },
         },
         {
@@ -491,6 +496,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "प्रिया पटेल का ५ ऑर्डर में शून्य रिफंड का रिकॉर्ड है। अनुशंसित आंशिक रिफंड ₹300 डिफ़ॉल्ट 0 ऑटो-रिफंड सीमा के तहत मर्चेंट स्वीकृति की प्रतीक्षा में है।",
           gapsIdentified: [],
           verdictRecommendation: "OFFER_PARTIAL",
+          source: "template",
           telemetrySummary: { refund_ratio: 0.0, recommended_paise: 30000 },
         },
       ],
@@ -562,6 +568,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "रेज़रपे भुगतान pay_UpiTestCaseC01 ₹2,499 कैप्चर स्थिति में है। राशि मर्चेंट खाते में उपलब्ध है।",
           gapsIdentified: [],
           verdictRecommendation: "APPROVE_REFUND",
+          source: "template",
           telemetrySummary: { captured: true, amount_paise: 249900 },
         },
         {
@@ -575,6 +582,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "शिपराकेट AWB-SR-990103: पिछले ९ दिनों से कोई गतिविधि नहीं। कूरियर स्थिति 'LOST_IN_TRANSIT_SUSPECTED'। कूरियर स्तर पर डिलीवरी विफलता सिद्ध है।",
           gapsIdentified: ["MISSING_DELIVERY_PROOF", "MISSING_TRACKING"],
           verdictRecommendation: "APPROVE_REFUND",
+          source: "template",
           telemetrySummary: { awb: "AWB-SR-990103", days_stalled: 9 },
         },
         {
@@ -588,6 +596,7 @@ export function getInitialSeedCases(): UpiCase[] {
             "ग्राहक का साफ़ रिकॉर्ड (३ ऑर्डर, शून्य विवाद)। अनुशंसित रिफंड ₹2,499 है, जो ₹500 से अधिक है। सुरक्षा सीमा ने मानवीय स्वीकृति लॉक लागू किया है।",
           gapsIdentified: [],
           verdictRecommendation: "APPROVE_REFUND",
+          source: "template",
           telemetrySummary: {
             amount_paise: 249900,
             threshold_paise: 50000,

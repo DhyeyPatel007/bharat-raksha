@@ -18,7 +18,8 @@ import {
   refundCapturedPayment,
 } from "../src/lib/upi/razorpay";
 import { trackAwb } from "../src/lib/upi/shiprocket";
-import { runUpiSwarm } from "../src/lib/upi/jurors";
+import { runUpiSwarm, validateJurorReply } from "../src/lib/upi/jurors";
+import { isLLMConfigured } from "../src/lib/llm";
 import { STRINGS } from "../src/lib/i18n";
 
 let passed = 0;
@@ -371,6 +372,297 @@ async function runAll() {
     assert.equal(key1.length, 64);
     assert.equal(key1, key2);
     assert.notEqual(key1, key3);
+  });
+
+
+  // 12. LLM Jurors Layer & Validation Tests
+  test("LLM Juror Validator: accepts authentic critique with matching ₹ and RRN", () => {
+    const valid = validateJurorReply(
+      "Verified 1 captured payment of ₹3,200 for RRN 631514892011. Merchant received funds once; second transaction timed out.",
+      {
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        recommendedRefundPaise: 0,
+        orderId: "ORD-KRY-8801",
+        paymentAmountsPaise: [320000],
+      }
+    );
+    assert.equal(valid, true);
+  });
+
+  test("LLM Juror Validator: rejects hallucinated ₹ amount -> falls back to template", () => {
+    const invalid = validateJurorReply(
+      "Verified 1 captured payment of ₹3,200 for RRN 631514892011. However buyer also demands an extra ₹9,999 refund.",
+      {
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        recommendedRefundPaise: 0,
+        orderId: "ORD-KRY-8801",
+        paymentAmountsPaise: [320000],
+      }
+    );
+    assert.equal(invalid, false);
+  });
+
+  test("LLM Juror Validator: rejects invented 12-digit RRN -> falls back to template", () => {
+    const invalid = validateJurorReply(
+      "Verified payment for transaction under RRN 999988887777. Merchant received ₹3,200 from buyer.",
+      {
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        recommendedRefundPaise: 0,
+        orderId: "ORD-KRY-8801",
+        paymentAmountsPaise: [320000],
+      }
+    );
+    assert.equal(invalid, false);
+  });
+
+  test("LLM Juror Validator: rejects invented Order ID -> falls back to template", () => {
+    const invalid = validateJurorReply(
+      "Verified shipment dispatch for order ORD-FAKE-9999 with 0.85 kg weight certificate verified.",
+      {
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        recommendedRefundPaise: 0,
+        orderId: "ORD-KRY-8801",
+        paymentAmountsPaise: [320000],
+      }
+    );
+    assert.equal(invalid, false);
+  });
+
+  test("LLM Juror Validator: rejects stub replies (<40 chars)", () => {
+    const invalid = validateJurorReply("Looks verified.", {
+      rrn: "631514892011",
+      claimAmountPaise: 320000,
+      recommendedRefundPaise: 0,
+    });
+    assert.equal(invalid, false);
+  });
+
+  await test("LLM Juror Swarm: isLLMConfigured() false uses template path with unchanged score", async () => {
+    const oldKey = process.env.LLM_API_KEY;
+    delete process.env.LLM_API_KEY;
+    try {
+      assert.equal(isLLMConfigured(), false);
+      const res = await runUpiSwarm({
+        orderId: "ORD-KRY-8801",
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        buyerMessage: "debited twice and empty box",
+      });
+      assert.equal(res.score, 82);
+      assert.equal(res.verdict, "REJECT_CLAIM");
+      for (const juror of res.jurorReports) {
+        assert.equal(juror.source, "template");
+      }
+    } finally {
+      if (oldKey) process.env.LLM_API_KEY = oldKey;
+    }
+  });
+
+  await test("LLM Juror Swarm: mocked draft() delivers LLM critique while score & verdict remain 100% unchanged", async () => {
+    const originalFetch = global.fetch;
+    const oldKey = process.env.LLM_API_KEY;
+    const oldProvider = process.env.LLM_PROVIDER;
+    const oldBase = process.env.LLM_BASE_URL;
+    const oldModel = process.env.LLM_MODEL;
+
+    process.env.LLM_API_KEY = "mock_test_key";
+    process.env.LLM_PROVIDER = "custom";
+    process.env.LLM_BASE_URL = "https://mock.llm.nebius.test/v1";
+    process.env.LLM_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
+
+    const mockLlmText =
+      "Verified 1 captured payment of ₹3,200 for RRN 631514892011. Merchant received funds once; second transaction timed out.";
+
+    global.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: mockLlmText,
+            },
+          },
+        ],
+      }),
+    } as any);
+
+    try {
+      const res = await runUpiSwarm({
+        orderId: "ORD-KRY-8801",
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        buyerMessage: "debited twice and empty box",
+      });
+
+      assert.equal(res.score, 82);
+      assert.equal(res.verdict, "REJECT_CLAIM");
+      assert.equal(res.recommendedRefundPaise, 0);
+
+      const j1 = res.jurorReports.find((j) => j.jurorId === "JUROR_GATEWAY");
+      assert.ok(j1);
+      assert.equal(j1?.source, "llm");
+      assert.equal(j1?.critiqueEn, mockLlmText);
+      assert.ok(j1?.model);
+      assert.equal(j1?.provider, "custom");
+    } finally {
+      global.fetch = originalFetch;
+      if (oldKey) process.env.LLM_API_KEY = oldKey;
+      else delete process.env.LLM_API_KEY;
+      if (oldProvider) process.env.LLM_PROVIDER = oldProvider;
+      else delete process.env.LLM_PROVIDER;
+      if (oldBase) process.env.LLM_BASE_URL = oldBase;
+      else delete process.env.LLM_BASE_URL;
+      if (oldModel) process.env.LLM_MODEL = oldModel;
+      else delete process.env.LLM_MODEL;
+    }
+  });
+
+  await test("LLM Juror Swarm: mocked draft() with hallucinated ₹ amount falls back to template", async () => {
+    const originalFetch = global.fetch;
+    const oldKey = process.env.LLM_API_KEY;
+    const oldProvider = process.env.LLM_PROVIDER;
+    const oldBase = process.env.LLM_BASE_URL;
+    const oldModel = process.env.LLM_MODEL;
+
+    process.env.LLM_API_KEY = "mock_test_key";
+    process.env.LLM_PROVIDER = "custom";
+    process.env.LLM_BASE_URL = "https://mock.llm.nebius.test/v1";
+    process.env.LLM_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
+
+    const hallucinatedText =
+      "Verified captured payment of ₹3,200 for RRN 631514892011, but buyer demands extra ₹9,999 compensation.";
+
+    global.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: hallucinatedText } }],
+      }),
+    } as any);
+
+    try {
+      const res = await runUpiSwarm({
+        orderId: "ORD-KRY-8801",
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        buyerMessage: "debited twice and empty box",
+      });
+
+      assert.equal(res.score, 82);
+      assert.equal(res.verdict, "REJECT_CLAIM");
+
+      const j1 = res.jurorReports.find((j) => j.jurorId === "JUROR_GATEWAY");
+      assert.ok(j1);
+      assert.equal(j1?.source, "template");
+      assert.notEqual(j1?.critiqueEn, hallucinatedText);
+      assert.ok(j1?.critiqueEn.includes("Verified 1 captured payment"));
+    } finally {
+      global.fetch = originalFetch;
+      if (oldKey) process.env.LLM_API_KEY = oldKey;
+      else delete process.env.LLM_API_KEY;
+      if (oldProvider) process.env.LLM_PROVIDER = oldProvider;
+      else delete process.env.LLM_PROVIDER;
+      if (oldBase) process.env.LLM_BASE_URL = oldBase;
+      else delete process.env.LLM_BASE_URL;
+      if (oldModel) process.env.LLM_MODEL = oldModel;
+      else delete process.env.LLM_MODEL;
+    }
+  });
+
+  await test("LLM Juror Swarm: mocked draft() with invented RRN falls back to template", async () => {
+    const originalFetch = global.fetch;
+    const oldKey = process.env.LLM_API_KEY;
+    const oldProvider = process.env.LLM_PROVIDER;
+    const oldBase = process.env.LLM_BASE_URL;
+    const oldModel = process.env.LLM_MODEL;
+
+    process.env.LLM_API_KEY = "mock_test_key";
+    process.env.LLM_PROVIDER = "custom";
+    process.env.LLM_BASE_URL = "https://mock.llm.nebius.test/v1";
+    process.env.LLM_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
+
+    const inventedRrnText =
+      "Payment trace confirms capture of ₹3,200 under RRN 999988887777 for customer transaction.";
+
+    global.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { content: inventedRrnText } }],
+      }),
+    } as any);
+
+    try {
+      const res = await runUpiSwarm({
+        orderId: "ORD-KRY-8801",
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        buyerMessage: "debited twice and empty box",
+      });
+
+      assert.equal(res.score, 82);
+      const j1 = res.jurorReports.find((j) => j.jurorId === "JUROR_GATEWAY");
+      assert.ok(j1);
+      assert.equal(j1?.source, "template");
+      assert.notEqual(j1?.critiqueEn, inventedRrnText);
+    } finally {
+      global.fetch = originalFetch;
+      if (oldKey) process.env.LLM_API_KEY = oldKey;
+      else delete process.env.LLM_API_KEY;
+      if (oldProvider) process.env.LLM_PROVIDER = oldProvider;
+      else delete process.env.LLM_PROVIDER;
+      if (oldBase) process.env.LLM_BASE_URL = oldBase;
+      else delete process.env.LLM_BASE_URL;
+      if (oldModel) process.env.LLM_MODEL = oldModel;
+      else delete process.env.LLM_MODEL;
+    }
+  });
+
+  await test("LLM Juror Swarm: draft failure / 500 error falls back to template without throwing", async () => {
+    const originalFetch = global.fetch;
+    const oldKey = process.env.LLM_API_KEY;
+    const oldProvider = process.env.LLM_PROVIDER;
+    const oldBase = process.env.LLM_BASE_URL;
+    const oldModel = process.env.LLM_MODEL;
+
+    process.env.LLM_API_KEY = "mock_test_key";
+    process.env.LLM_PROVIDER = "custom";
+    process.env.LLM_BASE_URL = "https://mock.llm.nebius.test/v1";
+    process.env.LLM_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507";
+
+    global.fetch = async () => {
+      throw new Error("500 Internal Server Error / Connection refused");
+    };
+
+    try {
+      const res = await runUpiSwarm({
+        orderId: "ORD-KRY-8801",
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        buyerMessage: "debited twice and empty box",
+      });
+
+      assert.equal(res.score, 82);
+      assert.equal(res.verdict, "REJECT_CLAIM");
+      for (const juror of res.jurorReports) {
+        assert.equal(juror.source, "template");
+      }
+    } finally {
+      global.fetch = originalFetch;
+      if (oldKey) process.env.LLM_API_KEY = oldKey;
+      else delete process.env.LLM_API_KEY;
+      if (oldProvider) process.env.LLM_PROVIDER = oldProvider;
+      else delete process.env.LLM_PROVIDER;
+      if (oldBase) process.env.LLM_BASE_URL = oldBase;
+      else delete process.env.LLM_BASE_URL;
+      if (oldModel) process.env.LLM_MODEL = oldModel;
+      else delete process.env.LLM_MODEL;
+    }
   });
 
   console.log(`\nAll ${passed}/${total} PHALANX UPI checks passed successfully!`);

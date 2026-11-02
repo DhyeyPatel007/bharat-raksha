@@ -95,6 +95,9 @@ export interface JurorReport {
   gapsIdentified: string[];
   verdictRecommendation: UpiVerdict;
   telemetrySummary: Record<string, unknown>;
+  source?: "llm" | "template";
+  model?: string;
+  provider?: string;
 }
 
 export interface UpiIterationLog {
