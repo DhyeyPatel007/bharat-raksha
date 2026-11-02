@@ -324,6 +324,22 @@ export async function buildEvidencePdf(
     );
     cy -= 6;
 
+    // Pre-swarm preview label — honesty label, must survive reworks.
+    // A pre-swarm PDF must never be mistaken for a completed dossier.
+    if (!run) {
+      cy = drawWrapped(
+        page,
+        "PRE-SWARM PREVIEW — the swarm has not run yet. This dossier shows only Hound pass-1 sources (tracking + invoice). The merchant log and other slow sources are not included, and the score below reflects partial evidence only.",
+        MARGIN,
+        cy,
+        bold,
+        SMALL,
+        maxW,
+        rgb(0.6, 0.1, 0.1),
+      );
+      cy -= 6;
+    }
+
     // Box 2: Practical Reasons
     page.drawText("Why This Verdict (Key Deterministic Findings):", {
       x: MARGIN,
