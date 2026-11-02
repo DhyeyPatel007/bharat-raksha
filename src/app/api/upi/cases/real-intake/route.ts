@@ -3,6 +3,7 @@ import { fetchPaymentById, validateRazorpayKey } from "@/lib/upi/razorpay";
 import { runUpiSwarm } from "@/lib/upi/jurors";
 import { evaluateUpiGuardrail } from "@/lib/upi/guardrail";
 import { addUpiAuditLog, saveUpiCase, saveUpiOrder } from "@/lib/upi/store-db";
+import { sendMerchantClaimAlert } from "@/lib/upi/telegram";
 import type { UpiCase, UpiOrder } from "@/lib/upi/types";
 
 export async function POST(req: NextRequest) {
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
     };
 
     await saveUpiCase(newCase);
+    await sendMerchantClaimAlert(newCase);
 
     await addUpiAuditLog({
       case_id: caseId,

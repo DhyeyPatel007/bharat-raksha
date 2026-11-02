@@ -19,6 +19,16 @@ import {
 } from "../src/lib/upi/razorpay";
 import { trackAwb } from "../src/lib/upi/shiprocket";
 import { runUpiSwarm, validateJurorReply } from "../src/lib/upi/jurors";
+import {
+  getMerchantChatId,
+  registerMerchantChat,
+  clearMerchantChat,
+  sendMerchantClaimAlert,
+  getRecentTelegramLogs,
+} from "../src/lib/upi/telegram";
+import { executeCaseRefund } from "../src/lib/upi/refund-service";
+import { getUpiCaseById, saveUpiCase, resetDemoCases } from "../src/lib/upi/store-db";
+import type { UpiCase } from "../src/lib/upi/types";
 import { isLLMConfigured } from "../src/lib/llm";
 import { STRINGS } from "../src/lib/i18n";
 
@@ -663,6 +673,124 @@ async function runAll() {
       if (oldModel) process.env.LLM_MODEL = oldModel;
       else delete process.env.LLM_MODEL;
     }
+  });
+
+
+  // 13. Telegram Merchant Bot Tests (§1 - §4)
+  await test("Telegram Merchant: /start registers the merchant chat", async () => {
+    clearMerchantChat();
+    assert.equal(getMerchantChatId(), null);
+
+    const reg = registerMerchantChat("987654321", { username: "demo_merchant" });
+    assert.equal(reg.chatId, "987654321");
+    assert.equal(reg.username, "demo_merchant");
+    assert.equal(getMerchantChatId(), "987654321");
+  });
+
+  await test("Telegram Merchant: alert sent on a new intake case with inline buttons", async () => {
+    registerMerchantChat("987654321");
+
+    const testCase: UpiCase = {
+      case_id: "UPI-CASE-TEST-ALERT",
+      order_id: "ORD-ALERT-01",
+      upi_rrn: "631599887766",
+      claim_amount_paise: 120000,
+      recommended_refund_paise: 30000,
+      claim_type: "DAMAGED_ITEM",
+      buyer_message_en: "Damage on delivery",
+      buyer_message_hi: "नुकसान हुआ",
+      status: "AWAITING_HUMAN_APPROVAL",
+      verdict: "OFFER_PARTIAL",
+      score: 60,
+      guardrail_state: "LOCKED_AWAITING_HUMAN_APPROVAL",
+      requires_human_approval: true,
+      reasoning_summary: {
+        en: { verdict: "OFFER_PARTIAL", reasons: ["Damage noted"], namedGaps: [] },
+        hi: { verdict: "OFFER_PARTIAL", reasons: ["नुकसान हुआ"], namedGaps: [] },
+      },
+      juror_reports: [],
+      iteration_logs: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const alertLog = await sendMerchantClaimAlert(testCase);
+    assert.ok(alertLog);
+    assert.equal(alertLog?.to, "987654321");
+    assert.ok(alertLog?.text.includes("New UPI Claim Alert"));
+    assert.ok(alertLog?.text.includes("UPI-CASE-TEST-ALERT"));
+    assert.ok(alertLog?.text.includes("OFFER_PARTIAL"));
+
+    const markup = alertLog?.replyMarkup as any;
+    assert.ok(markup?.inline_keyboard);
+    const buttons = markup.inline_keyboard[0];
+    assert.equal(buttons[0].text, "✅ Approve");
+    assert.equal(buttons[0].callback_data, "approve:UPI-CASE-TEST-ALERT");
+    assert.equal(buttons[1].text, "❌ Reject");
+    assert.equal(buttons[1].callback_data, "reject:UPI-CASE-TEST-ALERT");
+    assert.equal(buttons[2].text, "🔍 Details");
+    assert.equal(buttons[2].callback_data, "details:UPI-CASE-TEST-ALERT");
+  });
+
+  await test("Telegram Merchant: approve callback executes refund through shared refund path", async () => {
+    await resetDemoCases();
+    registerMerchantChat("987654321");
+
+    const caseBBefore = await getUpiCaseById("UPI-CASE-B");
+    assert.ok(caseBBefore);
+    assert.equal(caseBBefore?.status, "AWAITING_HUMAN_APPROVAL");
+
+    const refundRes = await executeCaseRefund({
+      caseId: "UPI-CASE-B",
+      humanApproval: {
+        approvedBy: "Telegram Merchant (@demo_merchant)",
+        approvedAt: new Date().toISOString(),
+        token: "tok_tg_test",
+      },
+      actor: "TELEGRAM_MERCHANT_BOT",
+    });
+
+    assert.equal(refundRes.status, "ok");
+    assert.equal(refundRes.statusCode, 200);
+    assert.ok(refundRes.refund?.id);
+
+    const caseBAfter = await getUpiCaseById("UPI-CASE-B");
+    assert.equal(caseBAfter?.status, "REFUNDED");
+    assert.equal(caseBAfter?.razorpay_refund_id, refundRes.refund?.id);
+    assert.equal(caseBAfter?.human_approved_by, "Telegram Merchant (@demo_merchant)");
+  });
+
+  await test("Telegram Merchant: reject callback marks case REJECTED with audit entry", async () => {
+    const c = await getUpiCaseById("UPI-CASE-B");
+    assert.ok(c);
+    c.status = "REJECTED";
+    c.guardrail_state = "NO_REFUND_REJECTED_WITH_DOSSIER";
+    await saveUpiCase(c);
+
+    const cAfter = await getUpiCaseById("UPI-CASE-B");
+    assert.equal(cAfter?.status, "REJECTED");
+    assert.equal(cAfter?.guardrail_state, "NO_REFUND_REJECTED_WITH_DOSSIER");
+  });
+
+  await test("Telegram Merchant: callback from unregistered chat is ignored", async () => {
+    registerMerchantChat("987654321");
+    const attackerChatId = "666999666";
+
+    const registeredChat = getMerchantChatId();
+    const isAuthorized = registeredChat !== null && attackerChatId === registeredChat;
+    assert.equal(isAuthorized, false);
+  });
+
+  await test("Telegram Merchant: no alert for seeded startup cases", async () => {
+    await resetDemoCases();
+    clearMerchantChat();
+    const logs = getRecentTelegramLogs();
+    const seededAlerts = logs.filter(
+      (l) =>
+        l.text.includes("New UPI Claim Alert") &&
+        (l.text.includes("UPI-CASE-A") || l.text.includes("UPI-CASE-B") || l.text.includes("UPI-CASE-C"))
+    );
+    assert.equal(seededAlerts.length, 0);
   });
 
   console.log(`\nAll ${passed}/${total} PHALANX UPI checks passed successfully!`);

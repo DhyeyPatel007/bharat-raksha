@@ -23,6 +23,13 @@ BharatRaksha provides an autonomous, pure-code adjudication shield that investig
 - **Intake Channel:**
   - **Telegram Bot API Today:** Free, instant setup via BotFather (`/api/upi/webhooks/telegram`, `TELEGRAM_BOT_TOKEN`). Parses 12-digit UPI RRNs (`/\b(\d{12})\b/`) and Order IDs (`/\b(ORD-[A-Z0-9-]+)\b/i`), and dispatches instant status updates and refund receipts via Telegram.
   - **WhatsApp Cloud API Parked:** Parked in `src/lib/upi/whatsapp.ts` — returns when the merchant acquires an approved Meta WhatsApp Business Number.
+- **Telegram Merchant Bot (Mobile-First Operations):**
+  - Run the entire adjudication workbench directly from Telegram without visiting the web UI.
+  - **`/start`**: Registers the merchant chat ID to receive real-time claim alerts.
+  - **`/status`**: Lists all open claims currently awaiting merchant approval with amounts and verdicts.
+  - **New-Claim Outbound Alerts**: Every new claim ingested post-boot triggers an alert with case telemetry and inline action buttons: `[✅ Approve] [❌ Reject] [🔍 Details]`.
+  - **One-Tap Adjudication**: Tapping Approve executes the refund through the shared pure-code guardrail and Razorpay API, updating the alert message in real time.
+  - **Single-Tenant Security**: Strict chat validation ensures only the registered merchant can approve, reject, or inspect claims. All unauthorized interactions are silently ignored.
 - **Visible Live Swarm Execution:**
   - Every case features a **"Run swarm"** button that re-evaluates the forensic jurors live and animates the 4 deterministic stages:
     1. `Razorpay RRN check`: Verifies captured vs failed bank attempts and duplicate deductions.
@@ -70,6 +77,8 @@ SHIPROCKET_MODE=mock
 
 # Telegram Bot API (Optional for live outbound bot replies)
 TELEGRAM_BOT_TOKEN=
+# Optional merchant chat ID override (bypasses /start registration requirement)
+TELEGRAM_MERCHANT_CHAT_ID=
 
 # LLM Provider Configuration (Token Factory / OpenAI-compatible endpoint)
 LLM_PROVIDER=custom
@@ -78,7 +87,17 @@ LLM_API_KEY=v1.CmQ...
 LLM_MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507
 ```
 
-> **Note for Vercel Deployment:** After pushing to GitHub, add the same 4 LLM variables (`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`) to your Vercel Project Settings (Environment Variables, Production) so the live demo at [bharatraksha.krynex.in](https://bharatraksha.krynex.in) calls the LLM during swarm runs. Each Run spends a little Token Factory credit.
+### Telegram Webhook Setup (Production / Live Bot)
+To connect your Telegram bot to the live webhook on deployment:
+```bash
+curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://bharatraksha.krynex.in/api/upi/webhooks/telegram"
+```
+Or for local testing with ngrok/localtunnel:
+```bash
+curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<your-tunnel-domain>/api/upi/webhooks/telegram"
+```
+
+> **Note for Vercel Deployment:** After pushing to GitHub, add the environment variables (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_MERCHANT_CHAT_ID`, and the 4 LLM variables `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`) to your Vercel Project Settings (Environment Variables, Production) so the live demo at [bharatraksha.krynex.in](https://bharatraksha.krynex.in) operates smoothly in production.
 
 3. Install & Run:
 ```bash
@@ -95,7 +114,7 @@ Open [http://localhost:3000](http://localhost:3000) for the standalone BharatRak
 ```bash
 npm test
 ```
-Runs 144 unit checks + 34 UPI checks (including Telegram parser regex, guardrail approval gates, LLM mock draft verification, hallucination rejection, Razorpay security, and Shiprocket mock).
+Runs 144 unit checks + 40 UPI checks (including Telegram parser regex, merchant /start registration, inline callback approvals, guardrail approval gates, LLM mock draft verification, hallucination rejection, Razorpay security, and Shiprocket mock).
 
 - **Production Build:**
 ```bash
