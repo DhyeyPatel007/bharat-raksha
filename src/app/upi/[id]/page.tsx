@@ -45,16 +45,16 @@ export default function UpiCaseDetailPage({
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f8fafc",
-        color: "#0f172a",
+        backgroundColor: "#F7F3EA",
+        color: "#1A1A1A",
         fontFamily: "var(--font-sans, system-ui, sans-serif)",
       }}
     >
       {/* TOP GLOBAL BAR */}
       <header
         style={{
-          borderBottom: "1px solid #e2e8f0",
-          backgroundColor: "#ffffff",
+          borderBottom: "1px solid #E6DFD5",
+          backgroundColor: "#F7F3EA",
           position: "sticky",
           top: 0,
           zIndex: 50,
@@ -81,7 +81,7 @@ export default function UpiCaseDetailPage({
                   fontSize: "18px",
                   fontWeight: 900,
                   letterSpacing: "-0.5px",
-                  color: "#0f172a",
+                  color: "#1A1A1A",
                 }}
               >
                 🛡️ {t.brand_title}
@@ -136,12 +136,12 @@ export default function UpiCaseDetailPage({
             style={{
               padding: "40px",
               textAlign: "center",
-              backgroundColor: "#ffffff",
+              backgroundColor: "#F7F3EA",
               borderRadius: "14px",
               border: "1px solid #e2e8f0",
             }}
           >
-            <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#0f172a" }}>Case Not Found</h3>
+            <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#1A1A1A" }}>Case Not Found</h3>
             <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
               The requested UPI case does not exist or has expired from memory.
             </p>

@@ -70,7 +70,7 @@ export default function TermsPage() {
               style={{
                 fontSize: "13px",
                 fontWeight: 700,
-                backgroundColor: "#C93A1B",
+                backgroundColor: "#800020",
                 color: "#FFFFFF",
                 padding: "8px 16px",
                 borderRadius: "6px",
@@ -91,7 +91,7 @@ export default function TermsPage() {
             style={{
               fontSize: "11px",
               fontWeight: 800,
-              color: "#C93A1B",
+              color: "#800020",
               letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
@@ -180,7 +180,7 @@ export default function TermsPage() {
             style={{
               fontSize: "14px",
               fontWeight: 600,
-              color: "#C93A1B",
+              color: "#800020",
               textDecoration: "underline",
               textUnderlineOffset: "4px",
             }}

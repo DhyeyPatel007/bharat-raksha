@@ -202,6 +202,22 @@ async function testAcceptance() {
     throw new Error(`Expected 404 order_not_found, got ${resWebUnknown.status}`);
   }
 
+  // Step 16b: §1 Cross-Check: Web intake rejects unknown RRN with known Order ID (404)
+  const resCrossCheck = await fetch(`${base}/api/upi/cases/web-intake`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      rrn: "999999999999",
+      orderId: "ORD-KRY-8802",
+      description: "Spoofed cross-check test",
+    }),
+  });
+  const crossData = await resCrossCheck.json();
+  console.log(`[PASS] §1 Cross-check (unknown RRN + known order) -> HTTP ${resCrossCheck.status} (${crossData.status})`);
+  if (resCrossCheck.status !== 404 || crossData.status !== "order_not_found") {
+    throw new Error(`Expected 404 order_not_found on cross-check mismatch, got ${resCrossCheck.status}`);
+  }
+
   // Step 17: Web intake submits valid case
   const resWebValid = await fetch(`${base}/api/upi/cases/web-intake`, {
     method: "POST",
@@ -215,8 +231,8 @@ async function testAcceptance() {
   });
   const validData = await resWebValid.json();
   console.log(`[PASS] Web Intake valid RRN -> HTTP ${resWebValid.status}, caseId=${validData.case?.case_id}`);
-  if (resWebValid.status !== 201 || validData.status !== "ok" || !validData.case) {
-    throw new Error(`Expected 201 ok for valid web intake, got ${resWebValid.status}`);
+  if (![200, 201].includes(resWebValid.status) || validData.status !== "ok" || !validData.case) {
+    throw new Error(`Expected 200/201 ok for valid web intake, got ${resWebValid.status}`);
   }
 
   console.log("\n=================================================");

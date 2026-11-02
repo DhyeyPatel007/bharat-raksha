@@ -133,7 +133,11 @@ export async function fetchPaymentByRRN(
       if (res.ok) {
         const data = (await res.json()) as { items: RazorpayPaymentItem[] };
         const matching = (data.items || []).filter(
-          (item) => item.acquirer_data?.rrn === rrn || (orderId && item.order_id === orderId)
+          (item) => {
+            if (item.acquirer_data?.rrn !== rrn) return false;
+            if (orderId && item.order_id && item.order_id !== orderId) return false;
+            return true;
+          }
         );
         if (matching.length > 0) {
           const captured = matching.filter((p) => p.status === "captured");
@@ -154,7 +158,13 @@ export async function fetchPaymentByRRN(
   const order = await getUpiOrderByRrn(rrn);
   const items: RazorpayPaymentItem[] = [];
 
-  if (order) {
+  const orderMatches =
+    order &&
+    (!orderId ||
+      order.order_id === orderId ||
+      order.razorpay_order_id === orderId);
+
+  if (order && orderMatches) {
     items.push({
       id: order.razorpay_payment_id,
       entity: "payment",

@@ -70,7 +70,7 @@ export default function HowToUsePage() {
               style={{
                 fontSize: "13px",
                 fontWeight: 700,
-                backgroundColor: "#C93A1B",
+                backgroundColor: "#800020",
                 color: "#FFFFFF",
                 padding: "8px 16px",
                 borderRadius: "6px",
@@ -92,7 +92,7 @@ export default function HowToUsePage() {
             style={{
               fontSize: "11px",
               fontWeight: 800,
-              color: "#C93A1B",
+              color: "#800020",
               letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
@@ -133,7 +133,7 @@ export default function HowToUsePage() {
               style={{
                 fontFamily: "var(--font-serif, Georgia, serif)",
                 fontSize: "24px",
-                color: "#C93A1B",
+                color: "#800020",
                 fontWeight: 700,
               }}
             >
@@ -190,7 +190,7 @@ export default function HowToUsePage() {
               style={{
                 fontFamily: "var(--font-serif, Georgia, serif)",
                 fontSize: "24px",
-                color: "#C93A1B",
+                color: "#800020",
                 fontWeight: 700,
               }}
             >
@@ -234,7 +234,7 @@ export default function HowToUsePage() {
               style={{
                 fontFamily: "var(--font-serif, Georgia, serif)",
                 fontSize: "24px",
-                color: "#C93A1B",
+                color: "#800020",
                 fontWeight: 700,
               }}
             >
@@ -283,7 +283,7 @@ export default function HowToUsePage() {
               style={{
                 fontFamily: "var(--font-serif, Georgia, serif)",
                 fontSize: "24px",
-                color: "#C93A1B",
+                color: "#800020",
                 fontWeight: 700,
               }}
             >
@@ -311,7 +311,7 @@ export default function HowToUsePage() {
               style={{
                 fontSize: "14px",
                 fontWeight: 700,
-                backgroundColor: "#C93A1B",
+                backgroundColor: "#800020",
                 color: "#FFFFFF",
                 padding: "10px 20px",
                 borderRadius: "6px",

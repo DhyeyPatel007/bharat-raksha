@@ -77,11 +77,11 @@ export default function BharatRakshaLandingPage() {
               style={{
                 fontSize: "11px",
                 fontWeight: 700,
-                backgroundColor: "#FBEAE7",
-                color: "#C93A1B",
+                backgroundColor: "#F5E8E8",
+                color: "#800020",
                 padding: "2px 8px",
                 borderRadius: "4px",
-                border: "1px solid #F5CCC4",
+                border: "1px solid #E8C5C8",
                 letterSpacing: "0.05em",
               }}
             >
@@ -118,7 +118,7 @@ export default function BharatRakshaLandingPage() {
               style={{
                 fontSize: "13px",
                 fontWeight: 600,
-                color: "#C93A1B",
+                color: "#800020",
                 textDecoration: "none",
               }}
             >
@@ -129,7 +129,7 @@ export default function BharatRakshaLandingPage() {
               style={{
                 fontSize: "13px",
                 fontWeight: 700,
-                backgroundColor: "#C93A1B",
+                backgroundColor: "#800020",
                 color: "#FFFFFF",
                 padding: "8px 18px",
                 borderRadius: "6px",
@@ -174,7 +174,7 @@ export default function BharatRakshaLandingPage() {
               marginBottom: "24px",
             }}
           >
-            <span style={{ color: "#C93A1B" }}>●</span>
+            <span style={{ color: "#800020" }}>●</span>
             <span>
               {isHi
                 ? "भारतीय D2C विक्रेताओं के लिए स्वायत्त यूपीआई दावा ढाल"
@@ -196,11 +196,11 @@ export default function BharatRakshaLandingPage() {
           >
             {isHi ? (
               <>
-                फर्जी यूपीआई रिफंड दावों पर <span style={{ color: "#C93A1B" }}>पैसा गवाना</span> बंद करें।
+                फर्जी यूपीआई रिफंड दावों पर <span style={{ color: "#800020" }}>पैसा गवाना</span> बंद करें।
               </>
             ) : (
               <>
-                Stop bleeding money on <span style={{ color: "#C93A1B" }}>fraudulent UPI refund claims</span>.
+                Stop bleeding money on <span style={{ color: "#800020" }}>fraudulent UPI refund claims</span>.
               </>
             )}
           </h1>
@@ -227,7 +227,7 @@ export default function BharatRakshaLandingPage() {
               style={{
                 fontSize: "15px",
                 fontWeight: 700,
-                backgroundColor: "#C93A1B",
+                backgroundColor: "#800020",
                 color: "#FFFFFF",
                 padding: "14px 28px",
                 borderRadius: "6px",
@@ -296,7 +296,7 @@ export default function BharatRakshaLandingPage() {
               </div>
             </div>
             <div>
-              <div style={{ fontFamily: "var(--font-serif, Georgia, serif)", fontSize: "32px", color: "#C93A1B" }}>
+              <div style={{ fontFamily: "var(--font-serif, Georgia, serif)", fontSize: "32px", color: "#800020" }}>
                 12 Digits
               </div>
               <div style={{ fontSize: "12px", color: "#755E46", fontWeight: 600, textTransform: "uppercase" }}>
@@ -338,7 +338,7 @@ export default function BharatRakshaLandingPage() {
               style={{
                 fontSize: "11px",
                 fontWeight: 800,
-                color: "#C93A1B",
+                color: "#800020",
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
               }}
@@ -403,7 +403,7 @@ export default function BharatRakshaLandingPage() {
               style={{
                 fontSize: "11px",
                 fontWeight: 800,
-                color: "#C93A1B",
+                color: "#800020",
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
               }}
@@ -506,7 +506,7 @@ export default function BharatRakshaLandingPage() {
               style={{
                 fontSize: "11px",
                 fontWeight: 800,
-                color: "#C93A1B",
+                color: "#800020",
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
               }}
@@ -552,7 +552,7 @@ export default function BharatRakshaLandingPage() {
                 style={{
                   fontSize: "14px",
                   fontWeight: 700,
-                  color: "#C93A1B",
+                  color: "#800020",
                   textDecoration: "underline",
                   textUnderlineOffset: "4px",
                 }}
@@ -577,7 +577,7 @@ export default function BharatRakshaLandingPage() {
             style={{
               fontSize: "11px",
               fontWeight: 800,
-              color: "#C93A1B",
+              color: "#800020",
               letterSpacing: "0.08em",
               textTransform: "uppercase",
             }}
@@ -636,7 +636,7 @@ export default function BharatRakshaLandingPage() {
               <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1A1A1A", margin: "0 0 8px 0" }}>
                 Double Debit &amp; Empty Box
               </h3>
-              <div style={{ fontSize: "13px", color: "#C93A1B", fontWeight: 600, marginBottom: "8px" }}>
+              <div style={{ fontSize: "13px", color: "#800020", fontWeight: 600, marginBottom: "8px" }}>
                 Claimed: ₹3,200.00 • Recommended Refund: ₹0.00
               </div>
               <p style={{ fontSize: "13px", color: "#5A554E", lineHeight: 1.5, margin: "0 0 16px 0" }}>
@@ -820,7 +820,7 @@ export default function BharatRakshaLandingPage() {
                   style={{
                     fontSize: "11px",
                     fontWeight: 800,
-                    color: "#C93A1B",
+                    color: "#800020",
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                   }}
@@ -851,7 +851,7 @@ export default function BharatRakshaLandingPage() {
                   style={{
                     fontSize: "11px",
                     fontWeight: 800,
-                    color: "#C93A1B",
+                    color: "#800020",
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                   }}
@@ -868,18 +868,22 @@ export default function BharatRakshaLandingPage() {
                 >
                   Core Contributors
                 </h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", color: "#333333" }}>
-                  <div>
-                    <strong>Dhyey Patel</strong> — <span style={{ color: "#C93A1B", fontWeight: 700 }}>Team Leader &amp; Architect</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px", color: "#333333" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "#F5E8E8", color: "#800020", fontWeight: 700, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #E8C5C8" }}>DP</div>
+                    <div><strong>Dhyey Patel</strong> — <span style={{ color: "#800020", fontWeight: 700 }}>Team Leader &amp; Architect</span></div>
                   </div>
-                  <div>
-                    <strong>Snehil Sahay</strong> — Swarm &amp; Logistics Forensics
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "#F5E8E8", color: "#800020", fontWeight: 700, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #E8C5C8" }}>SS</div>
+                    <div><strong>Snehil Sahay</strong> — Swarm &amp; Logistics Forensics</div>
                   </div>
-                  <div>
-                    <strong>Kislay Kumar</strong> — Gateway &amp; Telemetry Integrations
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "#F5E8E8", color: "#800020", fontWeight: 700, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #E8C5C8" }}>KK</div>
+                    <div><strong>Kislay Kumar</strong> — Gateway &amp; Telemetry Integrations</div>
                   </div>
-                  <div>
-                    <strong>Kartikey Singh</strong> — Adjudication &amp; Policy Engineering
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "#F5E8E8", color: "#800020", fontWeight: 700, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #E8C5C8" }}>KS</div>
+                    <div><strong>Kartikey Singh</strong> — Adjudication &amp; Policy Engineering</div>
                   </div>
                 </div>
               </div>
@@ -936,7 +940,7 @@ export default function BharatRakshaLandingPage() {
               href="https://github.com/DhyeyPatel007/bharat-raksha"
               target="_blank"
               rel="noreferrer"
-              style={{ color: "#C93A1B", fontWeight: 700, textDecoration: "none" }}
+              style={{ color: "#800020", fontWeight: 700, textDecoration: "none" }}
             >
               GitHub ↗
             </a>

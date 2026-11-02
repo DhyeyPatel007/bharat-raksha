@@ -17,6 +17,7 @@ export default function RaiseIssuePage() {
   const [clientError, setClientError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittedCase, setSubmittedCase] = useState<UpiCase | null>(null);
+  const [alreadyExists, setAlreadyExists] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +69,7 @@ export default function RaiseIssuePage() {
         return;
       }
 
+      setAlreadyExists(Boolean(data.alreadyExists));
       setSubmittedCase(data.case);
     } catch {
       setClientError(
@@ -141,7 +143,7 @@ export default function RaiseIssuePage() {
               style={{
                 fontSize: "13px",
                 fontWeight: 700,
-                backgroundColor: "#C93A1B",
+                backgroundColor: "#800020",
                 color: "#FFFFFF",
                 padding: "8px 16px",
                 borderRadius: "6px",
@@ -164,7 +166,7 @@ export default function RaiseIssuePage() {
                 style={{
                   fontSize: "11px",
                   fontWeight: 800,
-                  color: "#C93A1B",
+                  color: "#800020",
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
                 }}
@@ -417,7 +419,7 @@ export default function RaiseIssuePage() {
                 style={{
                   padding: "14px",
                   borderRadius: "6px",
-                  backgroundColor: submitting ? "#9CA3AF" : "#C93A1B",
+                  backgroundColor: submitting ? "#9CA3AF" : "#800020",
                   color: "#FFFFFF",
                   fontSize: "15px",
                   fontWeight: 700,
@@ -487,6 +489,28 @@ export default function RaiseIssuePage() {
                 : "The 3-juror swarm has cross-examined your UPI RRN against gateway logs and courier telemetry. The findings have been sent to the merchant's Telegram for sign-off."}
             </p>
 
+            {alreadyExists && (
+              <div
+                style={{
+                  padding: "16px 20px",
+                  backgroundColor: "#FFFBEB",
+                  border: "1.5px solid #FDE68A",
+                  borderRadius: "8px",
+                  color: "#92400E",
+                  fontSize: "14px",
+                  marginBottom: "20px",
+                  lineHeight: 1.5,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: "4px" }}>
+                  ℹ️ {isHi ? "पूर्व-विद्यमान दावा सूचना" : "Existing Case Record"}
+                </div>
+                {isHi
+                  ? `इस RRN के लिए पहले से एक मामला दर्ज है — वर्तमान स्थिति: ${submittedCase.status}। पूर्व मूल्यांकन सुरक्षित रखा गया है।`
+                  : `A case for this RRN already exists — status: ${submittedCase.status}. Your previous adjudication record is preserved.`}
+              </div>
+            )}
+
             {/* Case Details Card */}
             <div
               style={{
@@ -512,7 +536,7 @@ export default function RaiseIssuePage() {
                 </div>
                 <div>
                   <div style={{ color: "#755E46", fontSize: "12px", fontWeight: 600 }}>VERDICT &amp; SCORE</div>
-                  <div style={{ fontWeight: 700, color: "#C93A1B" }}>
+                  <div style={{ fontWeight: 700, color: "#800020" }}>
                     {submittedCase.verdict} ({submittedCase.score}/100)
                   </div>
                 </div>
@@ -524,7 +548,7 @@ export default function RaiseIssuePage() {
                 </div>
                 <div style={{ gridColumn: "1 / -1" }}>
                   <div style={{ color: "#755E46", fontSize: "12px", fontWeight: 600 }}>CURRENT STATUS</div>
-                  <div style={{ fontWeight: 700, color: "#1E40AF" }}>
+                  <div style={{ fontWeight: 700, color: "#800020" }}>
                     With the merchant for approval (Alert dispatched to Telegram)
                   </div>
                 </div>
@@ -537,7 +561,7 @@ export default function RaiseIssuePage() {
                 style={{
                   fontSize: "14px",
                   fontWeight: 700,
-                  backgroundColor: "#C93A1B",
+                  backgroundColor: "#800020",
                   color: "#FFFFFF",
                   padding: "10px 20px",
                   borderRadius: "6px",
@@ -550,8 +574,12 @@ export default function RaiseIssuePage() {
                 type="button"
                 onClick={() => {
                   setSubmittedCase(null);
+                  setAlreadyExists(false);
                   setRrn("");
+                  setOrderId("");
+                  setPhone("");
                   setDescription("");
+                  setClientError(null);
                 }}
                 style={{
                   fontSize: "14px",

@@ -76,7 +76,7 @@ function initMemoryStore(): PhalanxUpiMemoryStore {
     case_id: "UPI-CASE-A",
     actor: "SYSTEM",
     action_type: "SWARM_AUDIT_INITIALIZED",
-    tool_called: "phalanx_hound_v2",
+    tool_called: "bharatraksha_hound_v2",
     input_payload: { rrn: "631514892011", order_id: "ORD-KRY-8801" },
     output_payload: { score: 82, verdict: "REJECT_CLAIM" },
     guardrail_check: { code: "NO_REFUND_REJECTED_WITH_DOSSIER", pass: true },

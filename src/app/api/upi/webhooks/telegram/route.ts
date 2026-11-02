@@ -383,9 +383,21 @@ export async function POST(req: NextRequest) {
       // - Reply with not-found text
       // - Log UNMATCHED_CLAIM audit entry
       // -----------------------------------------------------------------------
-      let order: UpiOrder | null = await getUpiOrderByRrn(rrn);
-      if (!order && claim.orderId) {
-        order = await getUpiOrderById(claim.orderId);
+      let order: UpiOrder | null = null;
+      if (claim.orderId) {
+        const orderById = await getUpiOrderById(claim.orderId);
+        if (orderById && orderById.upi_rrn !== rrn) {
+          order = null;
+        } else {
+          const orderByRrn = await getUpiOrderByRrn(rrn);
+          if (orderByRrn && orderByRrn.order_id !== claim.orderId) {
+            order = null;
+          } else {
+            order = orderById || orderByRrn;
+          }
+        }
+      } else {
+        order = await getUpiOrderByRrn(rrn);
       }
 
       if (!order) {
@@ -393,22 +405,24 @@ export async function POST(req: NextRequest) {
         const rzpLookup = await fetchPaymentByRRN(rrn, claim.orderId || undefined);
         if (rzpLookup.payments && rzpLookup.payments.length > 0) {
           const p = rzpLookup.payments[0];
-          order = {
-            order_id: p.order_id || claim.orderId || `ORD-${rrn.slice(-4)}`,
-            customer_phone: p.contact || "+919876543210",
-            customer_name: "Customer",
-            amount_paise: p.amount,
-            upi_rrn: rrn,
-            razorpay_payment_id: p.id,
-            razorpay_order_id: p.order_id || `ORD-${rrn.slice(-4)}`,
-            payment_status: p.status,
-            awb_code: null,
-            warehouse_weight_kg: null,
-            courier_weight_kg: null,
-            otp_verified: false,
-            created_at: new Date(p.created_at * 1000).toISOString(),
-          };
-          await saveUpiOrder(order);
+          if (p.acquirer_data?.rrn === rrn && (!claim.orderId || p.order_id === claim.orderId)) {
+            order = {
+              order_id: p.order_id || claim.orderId || `ORD-${rrn.slice(-4)}`,
+              customer_phone: p.contact || "+919876543210",
+              customer_name: "Customer",
+              amount_paise: p.amount,
+              upi_rrn: rrn,
+              razorpay_payment_id: p.id,
+              razorpay_order_id: p.order_id || `ORD-${rrn.slice(-4)}`,
+              payment_status: p.status,
+              awb_code: null,
+              warehouse_weight_kg: null,
+              courier_weight_kg: null,
+              otp_verified: false,
+              created_at: new Date(p.created_at * 1000).toISOString(),
+            };
+            await saveUpiOrder(order);
+          }
         }
       }
 
@@ -442,8 +456,9 @@ export async function POST(req: NextRequest) {
           {
             status: "order_not_found",
             message: notFoundText,
+            error: notFoundText,
           },
-          { status: 200 }
+          { status: 404 }
         );
       }
 
@@ -488,39 +503,42 @@ export async function POST(req: NextRequest) {
         case_id: caseId,
         order_id: order.order_id,
         upi_rrn: rrn,
-        claim_amount_paise: order.amount_paise,
-        recommended_refund_paise: swarmResult.recommendedRefundPaise,
+        claim_amount_paise: existingCase?.claim_amount_paise || order.amount_paise,
+        recommended_refund_paise: existingCase?.recommended_refund_paise ?? swarmResult.recommendedRefundPaise,
         claim_type:
-          swarmResult.verdict === "APPROVE_REFUND"
+          existingCase?.claim_type ||
+          (swarmResult.verdict === "APPROVE_REFUND"
             ? "LOST_IN_TRANSIT"
             : swarmResult.verdict === "OFFER_PARTIAL"
             ? "DAMAGED_ITEM"
-            : "EMPTY_BOX",
-        buyer_message_en: claim.rawMessage,
-        buyer_message_hi: claim.rawMessage,
+            : "EMPTY_BOX"),
+        buyer_message_en: existingCase?.buyer_message_en || claim.rawMessage,
+        buyer_message_hi: existingCase?.buyer_message_hi || claim.rawMessage,
         status:
-          guardrail.code === "AUTO_APPROVED_UNDER_500"
+          existingCase?.status ||
+          (guardrail.code === "AUTO_APPROVED_UNDER_500"
             ? "AUTO_REFUNDED"
             : guardrail.code === "LOCKED_AWAITING_HUMAN_APPROVAL"
             ? "AWAITING_HUMAN_APPROVAL"
-            : "REJECTED",
-        verdict: swarmResult.verdict,
-        score: swarmResult.score,
-        guardrail_state: guardrail.code,
-        requires_human_approval: guardrail.requiresHumanApproval,
+            : "REJECTED"),
+        verdict: existingCase?.verdict || swarmResult.verdict,
+        score: existingCase?.score || swarmResult.score,
+        guardrail_state: existingCase?.guardrail_state || guardrail.code,
+        requires_human_approval: existingCase?.requires_human_approval ?? guardrail.requiresHumanApproval,
         human_approved_by: existingCase?.human_approved_by || null,
         human_approved_at: existingCase?.human_approved_at || null,
         razorpay_refund_id:
           guardrail.code === "AUTO_APPROVED_UNDER_500"
             ? `rfnd_auto_${rrn}`
             : existingCase?.razorpay_refund_id || null,
-        reasoning_summary: swarmResult.reasoning,
-        juror_reports: swarmResult.jurorReports,
-        iteration_logs: swarmResult.iterationLogs,
+        reasoning_summary: existingCase?.reasoning_summary || swarmResult.reasoning,
+        juror_reports: existingCase?.juror_reports || swarmResult.jurorReports,
+        iteration_logs: existingCase?.iteration_logs || swarmResult.iterationLogs,
         created_at: existingCase?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        origin_group_chat_id: claim.isGroup ? claim.chatId : null,
-        intake_source: claim.isGroup ? "TELEGRAM_GROUP" : "TELEGRAM_BOT",
+        origin_group_chat_id: claim.isGroup ? claim.chatId : (existingCase?.origin_group_chat_id || null),
+        intake_source: claim.isGroup ? "TELEGRAM_GROUP" : (existingCase?.intake_source || "TELEGRAM_BOT"),
+        order_telemetry: existingCase?.order_telemetry || order,
       };
 
       await saveUpiCase(updatedCase);

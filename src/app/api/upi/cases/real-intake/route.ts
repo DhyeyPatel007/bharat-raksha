@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchPaymentById, validateRazorpayKey } from "@/lib/upi/razorpay";
 import { runUpiSwarm } from "@/lib/upi/jurors";
 import { evaluateUpiGuardrail } from "@/lib/upi/guardrail";
-import { addUpiAuditLog, saveUpiCase, saveUpiOrder } from "@/lib/upi/store-db";
+import {
+  addUpiAuditLog,
+  getUpiCaseById,
+  getUpiOrderByRrn,
+  getUpiOrderById,
+  saveUpiCase,
+  saveUpiOrder,
+} from "@/lib/upi/store-db";
 import { sendMerchantClaimAlert } from "@/lib/upi/telegram";
 import type { UpiCase, UpiOrder } from "@/lib/upi/types";
 
@@ -11,6 +18,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const paymentId = (body.paymentId || "").trim();
     const rrn = (body.rrn || "").trim();
+    const bodyOrderId = (body.orderId || "").trim();
     const claimType = body.claimType || "DAMAGED_ITEM";
     const buyerMessage =
       body.buyerMessage ||
@@ -37,13 +45,33 @@ export async function POST(req: NextRequest) {
     // Fetch live from Razorpay API or fallback emulator
     const { payment, source } = await fetchPaymentById(paymentId);
 
-    if (!payment) {
+    let isMismatch = false;
+    if (payment) {
+      if (payment.acquirer_data?.rrn && payment.acquirer_data.rrn !== rrn) {
+        isMismatch = true;
+      }
+      if (bodyOrderId && payment.order_id && payment.order_id !== bodyOrderId) {
+        isMismatch = true;
+      }
+      if (bodyOrderId) {
+        const orderById = await getUpiOrderById(bodyOrderId);
+        if (orderById && orderById.upi_rrn !== rrn) {
+          isMismatch = true;
+        }
+        const orderByRrn = await getUpiOrderByRrn(rrn);
+        if (orderByRrn && orderByRrn.order_id !== bodyOrderId) {
+          isMismatch = true;
+        }
+      }
+    }
+
+    if (!payment || isMismatch) {
       await addUpiAuditLog({
         case_id: "UNMATCHED",
         actor: "REAL_MODE_INTAKE",
         action_type: "UNMATCHED_CLAIM",
         tool_called: "order_lookup",
-        input_payload: { paymentId, rrn, claimType, buyerMessage },
+        input_payload: { paymentId, rrn, orderId: bodyOrderId, claimType, buyerMessage },
         output_payload: { status: "order_not_found" },
         guardrail_check: { pass: false, reason: "ORDER_NOT_FOUND" },
       });
@@ -58,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     const orderId =
       payment.order_id ||
-      body.orderId ||
+      bodyOrderId ||
       `ORD-${paymentId.slice(-8).toUpperCase()}`;
 
     // Record order in store
@@ -79,6 +107,28 @@ export async function POST(req: NextRequest) {
     };
     await saveUpiOrder(orderRecord);
 
+    const caseId =
+      rrn === "631514892011"
+        ? "UPI-CASE-A"
+        : rrn === "631518440293"
+        ? "UPI-CASE-B"
+        : rrn === "631519773104"
+        ? "UPI-CASE-C"
+        : `UPI-CASE-${rrn.slice(-4)}`;
+
+    const existingCase = await getUpiCaseById(caseId);
+    if (existingCase) {
+      return NextResponse.json(
+        {
+          status: "ok",
+          alreadyExists: true,
+          message: `A case for this RRN already exists — status: ${existingCase.status}.`,
+          case: existingCase,
+        },
+        { status: 200 }
+      );
+    }
+
     // Run Swarm
     const swarmResult = await runUpiSwarm({
       orderId,
@@ -93,8 +143,6 @@ export async function POST(req: NextRequest) {
       verdict: swarmResult.verdict,
       recommendedRefundPaise: swarmResult.recommendedRefundPaise,
     });
-
-    const caseId = `UPI-CASE-${rrn.slice(-4)}`;
 
     const newCase: UpiCase = {
       case_id: caseId,
@@ -133,22 +181,23 @@ export async function POST(req: NextRequest) {
       case_id: caseId,
       actor: "REAL_MODE_INTAKE",
       action_type: "LIVE_PAYMENT_INGESTED",
-      tool_called: "fetchPaymentById",
-      input_payload: { paymentId, rrn, source },
+      tool_called: "real_mode_intake",
+      input_payload: { paymentId, rrn, amount: payment.amount, claimType, buyerMessage },
       output_payload: {
-        score: swarmResult.score,
+        caseId,
         verdict: swarmResult.verdict,
-        amountPaise: payment.amount,
-        status: payment.status,
+        score: swarmResult.score,
+        guardrailState: guardrail.code,
       },
       guardrail_check: { ...guardrail },
     });
 
     return NextResponse.json(
       {
-        success: true,
-        source,
+        status: "ok",
         case: newCase,
+        source,
+        message: `Real payment intake completed successfully. Registered as ${caseId}.`,
       },
       { status: 201 }
     );

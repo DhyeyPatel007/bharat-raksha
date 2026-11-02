@@ -112,10 +112,10 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
         style={{
           padding: "36px",
           textAlign: "center",
-          color: "#64748b",
-          backgroundColor: "#f8fafc",
+          color: "#755E46",
+          backgroundColor: "#F7F3EA",
           borderRadius: "12px",
-          border: "1px dashed #cbd5e1",
+          border: "1px dashed #D4C9BC",
         }}
       >
         No UPI cases found.
@@ -153,7 +153,7 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
         // Semantic status style & text
         let statusBg = "#f1f5f9";
         let statusColor = "#475569";
-        let statusBorder = "#cbd5e1";
+        let statusBorder = "#D4C9BC";
         let statusText: string = c.status;
 
         if (c.verdict === "REJECT_CLAIM" || c.status === "REJECTED") {
@@ -195,7 +195,7 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
             key={c.case_id}
             style={{
               backgroundColor: "#ffffff",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
               borderRadius: "14px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
               overflow: "hidden",
@@ -221,7 +221,7 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
                     height: "46px",
                     borderRadius: "50%",
                     backgroundColor: "#f1f5f9",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid #E6DFD5",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -237,18 +237,18 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
 
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 700, fontSize: "15px", color: "#0f172a" }}>
+                    <span style={{ fontWeight: 700, fontSize: "15px", color: "#1A1A1A" }}>
                       {buyerName}
                     </span>
                     <span
                       style={{
                         fontFamily: "var(--font-mono, monospace)",
                         fontSize: "11px",
-                        color: "#64748b",
-                        backgroundColor: "#f8fafc",
+                        color: "#755E46",
+                        backgroundColor: "#F7F3EA",
                         padding: "2px 7px",
                         borderRadius: "6px",
-                        border: "1px solid #e2e8f0",
+                        border: "1px solid #E6DFD5",
                       }}
                     >
                       {c.order_id}
@@ -279,7 +279,7 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
                       gap: "8px",
                       marginTop: "4px",
                       fontSize: "12px",
-                      color: "#64748b",
+                      color: "#755E46",
                       flexWrap: "wrap",
                     }}
                   >
@@ -298,7 +298,7 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
                     <span>•</span>
                     <span style={{ fontWeight: 600, color: "#334155" }}>{c.case_id}</span>
                     <span>•</span>
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>{c.claim_type}</span>
+                    <span style={{ fontSize: "11px", color: "#755E46" }}>{c.claim_type}</span>
                   </div>
                 </div>
               </div>
@@ -318,7 +318,7 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
                     style={{
                       fontSize: "19px",
                       fontWeight: 800,
-                      color: "#0f172a",
+                      color: "#1A1A1A",
                       letterSpacing: "-0.5px",
                     }}
                   >
@@ -352,8 +352,8 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
                     gap: "6px",
                     padding: "8px 14px",
                     borderRadius: "8px",
-                    backgroundColor: isRunning ? "#e2e8f0" : "#0f172a",
-                    color: isRunning ? "#64748b" : "#ffffff",
+                    backgroundColor: isRunning ? "#D4C9BC" : "#800020",
+                    color: isRunning ? "#755E46" : "#ffffff",
                     border: "none",
                     fontWeight: 700,
                     fontSize: "12px",
@@ -372,9 +372,9 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
                   style={{
                     padding: "8px 14px",
                     borderRadius: "8px",
-                    backgroundColor: "#f8fafc",
-                    color: "#2563eb",
-                    border: "1px solid #cbd5e1",
+                    backgroundColor: "#F7F3EA",
+                    color: "#800020",
+                    border: "1px solid #D4C9BC",
                     fontWeight: 700,
                     fontSize: "12px",
                     textDecoration: "none",
@@ -405,11 +405,11 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
               <div
                 style={{
                   padding: "12px 20px",
-                  borderTop: "1px solid #e2e8f0",
-                  backgroundColor: "#f8fafc",
+                  borderTop: "1px solid #E6DFD5",
+                  backgroundColor: "#F7F3EA",
                 }}
               >
-                <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", marginBottom: "8px", textTransform: "uppercase" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "#755E46", marginBottom: "8px", textTransform: "uppercase" }}>
                   {language === "hi" ? "लाइव स्वार्म निष्पादन प्रगति" : "Live Swarm Execution Stages"}:
                 </div>
 
@@ -424,17 +424,17 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
                           padding: "8px 10px",
                           borderRadius: "6px",
                           border: `1px solid ${
-                            isDone ? "#a7f3d0" : isCurrent ? "#93c5fd" : "#e2e8f0"
+                            isDone ? "#a7f3d0" : isCurrent ? "#93c5fd" : "#E6DFD5"
                           }`,
-                          backgroundColor: isDone ? "#ecfdf5" : isCurrent ? "#eff6ff" : "#ffffff",
+                          backgroundColor: isDone ? "#ecfdf5" : isCurrent ? "#F5E8E8" : "#ffffff",
                           fontSize: "11px",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, color: isDone ? "#059669" : isCurrent ? "#1d4ed8" : "#64748b" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, color: isDone ? "#059669" : isCurrent ? "#1d4ed8" : "#755E46" }}>
                           <span>{isDone ? "✓" : isCurrent ? "⚙️" : "○"}</span>
                           <span>{st.title}</span>
                         </div>
-                        <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                        <div style={{ fontSize: "10px", color: "#755E46", marginTop: "2px" }}>
                           {st.detail}
                         </div>
                       </div>

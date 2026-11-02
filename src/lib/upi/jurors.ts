@@ -43,6 +43,8 @@ export interface JurorValidationEvidence {
   orderAmountPaise?: number;
   paymentAmountsPaise?: number[];
   otherAllowedAmounts?: string[];
+  capturedCount?: number;
+  failedCount?: number;
 }
 
 /**
@@ -147,6 +149,37 @@ export function validateJurorReply(
     }
   }
 
+  // 5. Payment Count & Telemetry Consistency Validation (§7)
+  if (evidence.capturedCount !== undefined && evidence.capturedCount < 2) {
+    const twoCapturedPatterns = [
+      /\btwo\s+captured\b/i,
+      /\bboth\s+captured\b/i,
+      /\btwo\s+successful\s+settlements\b/i,
+      /\bboth\s+successful\b/i,
+      /\btwo\s+successful\s+payments\b/i,
+      /\bboth\s+payments\s+captured\b/i,
+      /\btwo\s+settlements\b/i,
+      /\bdouble\s+captured\b/i,
+      /\bsecond\s+payment\s+captured\b/i,
+      /\bsecond\s+captured\s+payment\b/i,
+      /\btwo\s+captured\s+transactions\b/i,
+      /\bboth\s+transactions\s+captured\b/i,
+      /\btwo\s+payments\s+of\b/i,
+    ];
+
+    for (const pat of twoCapturedPatterns) {
+      if (pat.test(reply)) {
+        return false; // Contradicts payment count telemetry
+      }
+    }
+  }
+
+  if (evidence.capturedCount === 0) {
+    if (/\b(?:captured\s+payment|successful\s+payment|funds\s+settled)\b/i.test(reply)) {
+      return false; // Contradicts zero captured telemetry
+    }
+  }
+
   return true;
 }
 
@@ -159,6 +192,7 @@ MANDATORY CONSTRAINTS:
 - Rely EXCLUSIVELY on facts, amounts, and statuses present in the payment evidence.
 - NEVER invent amounts, dates, or payment states.
 - If payment failed or timed out at clearing, state funds never settled to merchant.
+- Respect the exact payment counts: if Captured Payments is 1, state clearly there is ONLY ONE captured payment and the second attempt FAILED. NEVER claim there are two captured payments, both captured, or multiple settlements.
 - Output ONLY the audit evaluation prose. No markdown headers or bullet formatting.`;
 
 export const JUROR2_SYSTEM = `AGENT PERSONA:
@@ -394,6 +428,8 @@ export async function runUpiSwarm(params: {
         recommendedRefundPaise,
         orderAmountPaise: order?.amount_paise,
         paymentAmountsPaise: gatewayTrace.payments.map((p) => p.amount),
+        capturedCount: capturedPayments.length,
+        failedCount: failedPayments.length,
       };
 
       const baseContext = `CASE TELEMETRY CONTEXT:
@@ -404,11 +440,17 @@ Customer Claim Message: "${params.buyerMessage}"`;
 
       const promptJ1 = `${baseContext}
 
-GATEWAY & SETTLEMENT EVIDENCE:
-- Captured Payments: ${capturedPayments.length} (Total Captured: ₹${(
+STRUCTURED PAYMENT TELEMETRY (HARD FACTS - MUST RESPECT EXACT COUNTS):
+- EXACT Captured Payments Count: ${capturedPayments.length} (Merchant received funds EXACTLY ${capturedPayments.length} time(s))
+- EXACT Failed or Unsettled Bank Attempts: ${failedPayments.length} (Funds 0 settled to merchant)
+- Total Captured Funds: ₹${(
         capturedPayments.reduce((acc, p) => acc + p.amount, 0) / 100
-      ).toFixed(2)})
-- Failed or Unsettled Bank Attempts: ${failedPayments.length}
+      ).toFixed(2)}
+- Double-Debit Evaluation: ${
+        capturedPayments.length === 1 && failedPayments.length > 0
+          ? "Buyer claims double debit, but only ONE payment captured; second attempt failed at bank clearing and never settled."
+          : "Standard clearing."
+      }
 ${gatewayTrace.payments
   .map(
     (p) =>

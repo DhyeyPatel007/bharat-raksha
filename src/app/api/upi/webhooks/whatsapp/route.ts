@@ -9,6 +9,7 @@ import {
   addUpiAuditLog,
   getUpiCaseById,
   getUpiOrderByRrn,
+  getUpiOrderById,
   saveUpiCase,
 } from "@/lib/upi/store-db";
 import { evaluateUpiGuardrail } from "@/lib/upi/guardrail";
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const expectedToken = process.env.WHATSAPP_VERIFY_TOKEN || "phalanx_webhook_verify_2026";
+  const expectedToken = process.env.WHATSAPP_VERIFY_TOKEN || "bharatraksha_webhook_verify_2026";
 
   if (mode === "subscribe" && token === expectedToken && challenge) {
     return new Response(challenge, {
@@ -62,29 +63,65 @@ export async function POST(req: NextRequest) {
     const processedCases: UpiCase[] = [];
 
     for (const claim of claims) {
-      const rrn = claim.rrn || "631514892011";
-      const orderId = claim.orderId || "ORD-KRY-8801";
+      const recipientPhone = claim.senderPhone || "+919876543210";
 
-      // Look up existing order or default
-      const order = await getUpiOrderByRrn(rrn);
-      const claimAmountPaise = order ? order.amount_paise : 320000;
+      if (!claim.rrn) {
+        await sendWhatsAppReceipt({
+          to: recipientPhone,
+          text: "Please provide the 12-digit UPI RRN (Reference Number) from your payment app so we can locate your payment.",
+        });
+        await addUpiAuditLog({
+          case_id: "UNMATCHED",
+          actor: "WHATSAPP_INTAKE",
+          action_type: "UNMATCHED_CLAIM",
+          tool_called: "bharatraksha_whatsapp_intake",
+          input_payload: { rawMessage: claim.rawMessage, phone: recipientPhone },
+          output_payload: { status: "missing_rrn" },
+          guardrail_check: { pass: false, reason: "MISSING_RRN" },
+        });
+        continue;
+      }
 
-      // Run Swarm evaluation
-      const swarmResult = await runUpiSwarm({
-        orderId: order?.order_id || orderId,
-        rrn,
-        claimAmountPaise,
-        buyerMessage: claim.rawMessage,
-      });
+      const rrn = claim.rrn;
+      let order = null;
 
-      // Run Guardrail check
-      const guardrail = evaluateUpiGuardrail({
-        paymentStatus: order ? order.payment_status : "captured",
-        verdict: swarmResult.verdict,
-        recommendedRefundPaise: swarmResult.recommendedRefundPaise,
-      });
+      if (claim.orderId) {
+        const orderById = await getUpiOrderById(claim.orderId);
+        if (orderById && orderById.upi_rrn !== rrn) {
+          order = null;
+        } else {
+          const orderByRrn = await getUpiOrderByRrn(rrn);
+          if (orderByRrn && orderByRrn.order_id !== claim.orderId) {
+            order = null;
+          } else {
+            order = orderById || orderByRrn;
+          }
+        }
+      } else {
+        order = await getUpiOrderByRrn(rrn);
+      }
 
-      // Construct or update case
+      if (!order) {
+        await sendWhatsAppReceipt({
+          to: recipientPhone,
+          text: "We couldn't find a payment with this RRN / order ID. Please check the 12-digit UPI RRN from your payment app and try again.",
+        });
+        await addUpiAuditLog({
+          case_id: "UNMATCHED",
+          actor: "WHATSAPP_INTAKE",
+          action_type: "UNMATCHED_CLAIM",
+          tool_called: "bharatraksha_whatsapp_intake",
+          input_payload: { rrn, orderId: claim.orderId, phone: recipientPhone },
+          output_payload: { status: "order_not_found" },
+          guardrail_check: { pass: false, reason: "ORDER_NOT_FOUND" },
+        });
+        continue;
+      }
+
+      const orderId = order.order_id;
+      const claimAmountPaise = order.amount_paise;
+
+      // Construct or lookup case ID
       const caseId =
         rrn === "631514892011"
           ? "UPI-CASE-A"
@@ -96,39 +133,56 @@ export async function POST(req: NextRequest) {
 
       const existingCase = await getUpiCaseById(caseId);
 
+      // Run Swarm evaluation
+      const swarmResult = await runUpiSwarm({
+        orderId,
+        rrn,
+        claimAmountPaise,
+        buyerMessage: claim.rawMessage,
+      });
+
+      // Run Guardrail check
+      const guardrail = evaluateUpiGuardrail({
+        paymentStatus: order.payment_status,
+        verdict: swarmResult.verdict,
+        recommendedRefundPaise: swarmResult.recommendedRefundPaise,
+      });
+
       const updatedCase: UpiCase = {
         case_id: caseId,
-        order_id: order?.order_id || orderId,
+        order_id: orderId,
         upi_rrn: rrn,
-        claim_amount_paise: claimAmountPaise,
-        recommended_refund_paise: swarmResult.recommendedRefundPaise,
+        claim_amount_paise: existingCase?.claim_amount_paise || claimAmountPaise,
+        recommended_refund_paise: existingCase?.recommended_refund_paise ?? swarmResult.recommendedRefundPaise,
         claim_type:
-          swarmResult.verdict === "APPROVE_REFUND"
+          existingCase?.claim_type ||
+          (swarmResult.verdict === "APPROVE_REFUND"
             ? "LOST_IN_TRANSIT"
             : swarmResult.verdict === "OFFER_PARTIAL"
             ? "DAMAGED_ITEM"
-            : "EMPTY_BOX",
-        buyer_message_en: claim.rawMessage,
-        buyer_message_hi: claim.rawMessage,
+            : "EMPTY_BOX"),
+        buyer_message_en: existingCase?.buyer_message_en || claim.rawMessage,
+        buyer_message_hi: existingCase?.buyer_message_hi || claim.rawMessage,
         status:
-          guardrail.code === "AUTO_APPROVED_UNDER_500"
+          existingCase?.status ||
+          (guardrail.code === "AUTO_APPROVED_UNDER_500"
             ? "AUTO_REFUNDED"
             : guardrail.code === "LOCKED_AWAITING_HUMAN_APPROVAL"
             ? "AWAITING_HUMAN_APPROVAL"
-            : "REJECTED",
-        verdict: swarmResult.verdict,
-        score: swarmResult.score,
-        guardrail_state: guardrail.code,
-        requires_human_approval: guardrail.requiresHumanApproval,
+            : "REJECTED"),
+        verdict: existingCase?.verdict || swarmResult.verdict,
+        score: existingCase?.score || swarmResult.score,
+        guardrail_state: existingCase?.guardrail_state || guardrail.code,
+        requires_human_approval: existingCase?.requires_human_approval ?? guardrail.requiresHumanApproval,
         human_approved_by: existingCase?.human_approved_by || null,
         human_approved_at: existingCase?.human_approved_at || null,
         razorpay_refund_id:
           guardrail.code === "AUTO_APPROVED_UNDER_500"
             ? `rfnd_auto_${rrn}`
             : existingCase?.razorpay_refund_id || null,
-        reasoning_summary: swarmResult.reasoning,
-        juror_reports: swarmResult.jurorReports,
-        iteration_logs: swarmResult.iterationLogs,
+        reasoning_summary: existingCase?.reasoning_summary || swarmResult.reasoning,
+        juror_reports: existingCase?.juror_reports || swarmResult.jurorReports,
+        iteration_logs: existingCase?.iteration_logs || swarmResult.iterationLogs,
         created_at: existingCase?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -140,7 +194,7 @@ export async function POST(req: NextRequest) {
         case_id: caseId,
         actor: "WHATSAPP_WEBHOOK",
         action_type: "BUYER_CLAIM_INGESTED",
-        tool_called: "phalanx_whatsapp_intake",
+        tool_called: "bharatraksha_whatsapp_intake",
         input_payload: { rawMessage: claim.rawMessage, rrn, orderId },
         output_payload: {
           verdict: swarmResult.verdict,
@@ -165,7 +219,7 @@ export async function POST(req: NextRequest) {
       }
 
       await sendWhatsAppReceipt({
-        to: claim.senderPhone,
+        to: recipientPhone,
         text: replyText,
       });
 
@@ -178,4 +232,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
-

@@ -113,7 +113,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
 
   let pillBg = "#f1f5f9";
   let pillColor = "#334155";
-  let pillBorder = "#cbd5e1";
+  let pillBorder = "#D4C9BC";
   let statusText: string = caseData.status;
 
   if (isRejected) {
@@ -198,7 +198,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
       <div
         style={{
           backgroundColor: "#ffffff",
-          border: "1px solid #e2e8f0",
+          border: "1px solid #E6DFD5",
           borderRadius: "16px",
           padding: "32px 24px",
           boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
@@ -206,7 +206,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
           marginBottom: "28px",
         }}
       >
-        <div style={{ color: "#64748b", fontSize: "13px", fontWeight: 600, marginBottom: "8px" }}>
+        <div style={{ color: "#755E46", fontSize: "13px", fontWeight: 600, marginBottom: "8px" }}>
           {caseData.buyer_telemetry?.customer_name || caseData.order_telemetry?.customer_name} •{" "}
           {caseData.order_id}
         </div>
@@ -216,7 +216,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
           style={{
             fontSize: "44px",
             fontWeight: 900,
-            color: "#0f172a",
+            color: "#1A1A1A",
             letterSpacing: "-1px",
             marginBottom: "12px",
           }}
@@ -251,7 +251,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               fontWeight: 600,
               backgroundColor: "#f1f5f9",
               color: "#334155",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
             }}
           >
             {guardrailPill}
@@ -275,16 +275,16 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
             onClick={() => copyToClipboard(caseData.upi_rrn, "RRN")}
             style={{
               padding: "10px 14px",
-              backgroundColor: "#f8fafc",
+              backgroundColor: "#F7F3EA",
               borderRadius: "10px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
               cursor: "pointer",
             }}
           >
-            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, color: "#755E46", textTransform: "uppercase" }}>
               {t.upi_rrn} {copiedBadge === "RRN" && "✓ Copied"}
             </div>
-            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>
+            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", fontWeight: 700, color: "#1A1A1A", marginTop: "2px" }}>
               {caseData.upi_rrn}
             </div>
           </div>
@@ -294,16 +294,16 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
             onClick={() => copyToClipboard(caseData.order_telemetry?.razorpay_payment_id || "", "PAY_ID")}
             style={{
               padding: "10px 14px",
-              backgroundColor: "#f8fafc",
+              backgroundColor: "#F7F3EA",
               borderRadius: "10px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
               cursor: "pointer",
             }}
           >
-            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, color: "#755E46", textTransform: "uppercase" }}>
               Razorpay ID {copiedBadge === "PAY_ID" && "✓ Copied"}
             </div>
-            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>
+            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", fontWeight: 700, color: "#1A1A1A", marginTop: "2px" }}>
               {caseData.order_telemetry?.razorpay_payment_id || "N/A"}
             </div>
           </div>
@@ -313,16 +313,16 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
             onClick={() => copyToClipboard(caseData.order_telemetry?.awb_code || "", "AWB")}
             style={{
               padding: "10px 14px",
-              backgroundColor: "#f8fafc",
+              backgroundColor: "#F7F3EA",
               borderRadius: "10px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
               cursor: "pointer",
             }}
           >
-            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, color: "#755E46", textTransform: "uppercase" }}>
               {t.awb_number} {copiedBadge === "AWB" && "✓ Copied"}
             </div>
-            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>
+            <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", fontWeight: 700, color: "#1A1A1A", marginTop: "2px" }}>
               {caseData.order_telemetry?.awb_code || "N/A"}
             </div>
           </div>
@@ -331,12 +331,12 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
           <div
             style={{
               padding: "10px 14px",
-              backgroundColor: "#f8fafc",
+              backgroundColor: "#F7F3EA",
               borderRadius: "10px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
             }}
           >
-            <div style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, color: "#755E46", textTransform: "uppercase" }}>
               Payment State
             </div>
             <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "13px", fontWeight: 800, color: caseData.order_telemetry?.payment_status === "captured" ? "#059669" : "#e11d48", marginTop: "2px" }}>
@@ -411,7 +411,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               gap: "8px",
               padding: "10px 20px",
               borderRadius: "10px",
-              backgroundColor: isRunningSwarm ? "#cbd5e1" : "#2563eb",
+              backgroundColor: isRunningSwarm ? "#D4C9BC" : "#800020",
               color: "#ffffff",
               border: "none",
               fontWeight: 700,
@@ -434,7 +434,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               gap: "8px",
               padding: "10px 22px",
               borderRadius: "10px",
-              backgroundColor: "#0f172a",
+              backgroundColor: "#800020",
               color: "#ffffff",
               textDecoration: "none",
               fontWeight: 700,
@@ -481,7 +481,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <div style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", marginBottom: "10px" }}>
+            <div style={{ fontSize: "18px", fontWeight: 800, color: "#1A1A1A", marginBottom: "10px" }}>
               ⚠️ {t.confirm_approval_title}
             </div>
             <p style={{ fontSize: "13px", color: "#475569", lineHeight: 1.5, marginBottom: "16px" }}>
@@ -489,8 +489,8 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
             </p>
             <div
               style={{
-                backgroundColor: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                backgroundColor: "#F7F3EA",
+                border: "1px solid #E6DFD5",
                 padding: "12px",
                 borderRadius: "8px",
                 fontSize: "12px",
@@ -510,7 +510,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
                 style={{
                   padding: "8px 16px",
                   borderRadius: "8px",
-                  border: "1px solid #cbd5e1",
+                  border: "1px solid #D4C9BC",
                   backgroundColor: "#ffffff",
                   color: "#475569",
                   fontWeight: 600,
@@ -546,13 +546,13 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
       <div
         style={{
           backgroundColor: "#ffffff",
-          border: "1px solid #e2e8f0",
+          border: "1px solid #E6DFD5",
           borderRadius: "14px",
           padding: "24px",
           marginBottom: "28px",
         }}
       >
-        <div style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a", marginBottom: "18px" }}>
+        <div style={{ fontSize: "14px", fontWeight: 800, color: "#1A1A1A", marginBottom: "18px" }}>
           {language === "hi" ? "लेनदेन एवं फॉरेंसिक निर्णय समय-सीमा" : "Transaction & Forensic Adjudication Timeline"}
         </div>
 
@@ -563,8 +563,8 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               1
             </div>
             <div>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{t.step_1_payment}</div>
-              <div style={{ fontSize: "12px", color: "#64748b" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1A1A1A" }}>{t.step_1_payment}</div>
+              <div style={{ fontSize: "12px", color: "#755E46" }}>
                 RRN {caseData.upi_rrn} • Razorpay ID {caseData.order_telemetry?.razorpay_payment_id || "pay_trace"} • Status: {caseData.order_telemetry?.payment_status?.toUpperCase()}
               </div>
             </div>
@@ -572,11 +572,11 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
 
           {/* Step 2: Intake */}
           <div style={{ display: "flex", gap: "14px", alignItems: "flex-start" }}>
-            <div style={{ width: "24px", height: "24px", borderRadius: "50%", backgroundColor: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "12px", flexShrink: 0 }}>
+            <div style={{ width: "24px", height: "24px", borderRadius: "50%", backgroundColor: "#F5E8E8", color: "#800020", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "12px", flexShrink: 0 }}>
               2
             </div>
             <div>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{t.step_2_intake}</div>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1A1A1A" }}>{t.step_2_intake}</div>
               <div style={{ fontSize: "12px", color: "#475569", fontStyle: "italic", marginTop: "2px" }}>
                 &ldquo;{language === "hi" ? caseData.buyer_message_hi : caseData.buyer_message_en}&rdquo;
               </div>
@@ -589,8 +589,8 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               3
             </div>
             <div>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{t.step_3_audit}</div>
-              <div style={{ fontSize: "12px", color: "#64748b" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1A1A1A" }}>{t.step_3_audit}</div>
+              <div style={{ fontSize: "12px", color: "#755E46" }}>
                 Checklist Score: <strong>{caseData.score}/100</strong> • 3 Jurors deliberated with 2/3 quorum • Iteration count: {caseData.iteration_logs?.length || 1}
               </div>
             </div>
@@ -602,8 +602,8 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               4
             </div>
             <div>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{t.step_4_guardrail}</div>
-              <div style={{ fontSize: "12px", color: "#64748b" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1A1A1A" }}>{t.step_4_guardrail}</div>
+              <div style={{ fontSize: "12px", color: "#755E46" }}>
                 Rule code: <code style={{ backgroundColor: "#f1f5f9", padding: "1px 5px", borderRadius: "4px" }}>{caseData.guardrail_state}</code> • {caseData.requires_human_approval ? "Requires human signature" : "Autonomous execution enabled"}
               </div>
             </div>
@@ -615,8 +615,8 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               5
             </div>
             <div>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{t.step_5_resolution}</div>
-              <div style={{ fontSize: "12px", color: "#64748b" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1A1A1A" }}>{t.step_5_resolution}</div>
+              <div style={{ fontSize: "12px", color: "#755E46" }}>
                 Verdict: <strong>{caseData.verdict}</strong> • Status: {statusText}
                 {caseData.razorpay_refund_id && ` • Refund ID: ${caseData.razorpay_refund_id}`}
               </div>
@@ -631,13 +631,13 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
         <div
           style={{
             backgroundColor: "#ffffff",
-            border: "1px solid #e2e8f0",
+            border: "1px solid #E6DFD5",
             borderRadius: "14px",
             padding: "24px",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-            <div style={{ fontSize: "15px", fontWeight: 800, color: "#0f172a" }}>
+            <div style={{ fontSize: "15px", fontWeight: 800, color: "#1A1A1A" }}>
               ⚖️ {language === "hi" ? "आर्बिटर व्यावहारिक निष्कर्ष" : "Arbiter Practical Reasoning Summary"}
             </div>
             <span
@@ -658,7 +658,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
               : caseData.reasoning_summary?.en?.reasons || []
             ).map((reason, idx) => (
               <div key={idx} style={{ display: "flex", gap: "10px", fontSize: "13px", color: "#334155", lineHeight: 1.5 }}>
-                <span style={{ color: "#2563eb", fontWeight: 800 }}>•</span>
+                <span style={{ color: "#800020", fontWeight: 800 }}>•</span>
                 <span>{reason}</span>
               </div>
             ))}
@@ -666,7 +666,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
 
           {/* Named Gaps */}
           <div style={{ marginTop: "18px", paddingTop: "14px", borderTop: "1px solid #f1f5f9" }}>
-            <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "8px" }}>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: "#755E46", textTransform: "uppercase", marginBottom: "8px" }}>
               {language === "hi" ? "पहचाने गए विसंगति वर्ग (Canonical Gap Buckets)" : "Identified Canonical Gap Buckets"}
             </div>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -678,10 +678,10 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
                     fontSize: "11px",
                     fontWeight: 600,
                     padding: "3px 8px",
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: "#F7F3EA",
                     color: "#475569",
                     borderRadius: "6px",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid #E6DFD5",
                   }}
                 >
                   {gap}
@@ -700,14 +700,14 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
                 key={idx}
                 style={{
                   backgroundColor: "#ffffff",
-                  border: "1px solid #e2e8f0",
+                  border: "1px solid #E6DFD5",
                   borderRadius: "12px",
                   padding: "18px",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px", gap: "8px" }}>
                   <div>
-                    <div style={{ fontSize: "13px", fontWeight: 800, color: "#0f172a" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 800, color: "#1A1A1A" }}>
                       {language === "hi" ? juror.jurorTitleHi : juror.jurorTitleEn}
                     </div>
                     {/* Badge: AI vs Template */}
@@ -719,8 +719,8 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
                           padding: "2px 6px",
                           borderRadius: "4px",
                           backgroundColor: isAi ? "#ecfdf5" : "#f1f5f9",
-                          color: isAi ? "#059669" : "#64748b",
-                          border: isAi ? "1px solid #a7f3d0" : "1px solid #e2e8f0",
+                          color: isAi ? "#059669" : "#755E46",
+                          border: isAi ? "1px solid #a7f3d0" : "1px solid #E6DFD5",
                           display: "inline-flex",
                           alignItems: "center",
                           gap: "3px",
@@ -733,7 +733,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
                           style={{
                             fontSize: "10px",
                             fontFamily: "var(--font-mono, monospace)",
-                            color: "#64748b",
+                            color: "#755E46",
                           }}
                         >
                           {juror.model.split("/").pop()}
@@ -746,7 +746,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
                       fontFamily: "var(--font-mono, monospace)",
                       fontSize: "12px",
                       fontWeight: 700,
-                      color: juror.scoreContribution > 0 ? "#059669" : "#64748b",
+                      color: juror.scoreContribution > 0 ? "#059669" : "#755E46",
                       whiteSpace: "nowrap",
                     }}
                   >
@@ -766,42 +766,42 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
         <div
           style={{
             backgroundColor: "#ffffff",
-            border: "1px solid #e2e8f0",
+            border: "1px solid #E6DFD5",
             borderRadius: "14px",
             padding: "20px",
           }}
         >
-          <div style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a", marginBottom: "14px" }}>
+          <div style={{ fontSize: "14px", fontWeight: 800, color: "#1A1A1A", marginBottom: "14px" }}>
             📜 {language === "hi" ? "अपरिवर्तनीय ऑडिट लॉग" : "Immutable Telemetry Audit Logs"}
           </div>
 
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
-                  <th style={{ padding: "8px 10px", color: "#64748b" }}>Timestamp</th>
-                  <th style={{ padding: "8px 10px", color: "#64748b" }}>Actor</th>
-                  <th style={{ padding: "8px 10px", color: "#64748b" }}>Action</th>
-                  <th style={{ padding: "8px 10px", color: "#64748b" }}>Tool</th>
-                  <th style={{ padding: "8px 10px", color: "#64748b" }}>Idempotency / Guardrail</th>
+                <tr style={{ borderBottom: "1px solid #E6DFD5", textAlign: "left" }}>
+                  <th style={{ padding: "8px 10px", color: "#755E46" }}>Timestamp</th>
+                  <th style={{ padding: "8px 10px", color: "#755E46" }}>Actor</th>
+                  <th style={{ padding: "8px 10px", color: "#755E46" }}>Action</th>
+                  <th style={{ padding: "8px 10px", color: "#755E46" }}>Tool</th>
+                  <th style={{ padding: "8px 10px", color: "#755E46" }}>Idempotency / Guardrail</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log) => (
                   <tr key={log.log_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "8px 10px", fontFamily: "var(--font-mono, monospace)", color: "#64748b" }}>
+                    <td style={{ padding: "8px 10px", fontFamily: "var(--font-mono, monospace)", color: "#755E46" }}>
                       {log.created_at.slice(11, 19)}
                     </td>
-                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#0f172a" }}>
+                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1A1A1A" }}>
                       {log.actor}
                     </td>
                     <td style={{ padding: "8px 10px", color: "#334155" }}>
                       {log.action_type}
                     </td>
-                    <td style={{ padding: "8px 10px", fontFamily: "var(--font-mono, monospace)", color: "#2563eb" }}>
+                    <td style={{ padding: "8px 10px", fontFamily: "var(--font-mono, monospace)", color: "#800020" }}>
                       {log.tool_called}
                     </td>
-                    <td style={{ padding: "8px 10px", fontFamily: "var(--font-mono, monospace)", color: "#64748b" }}>
+                    <td style={{ padding: "8px 10px", fontFamily: "var(--font-mono, monospace)", color: "#755E46" }}>
                       {log.idempotency_key ? log.idempotency_key.slice(0, 10) + "..." : "PASS"}
                     </td>
                   </tr>

@@ -129,7 +129,7 @@ export const STRINGS: Record<Language, I18nDictionary> = {
     awaiting_approval: "Awaiting approval",
     payment_successful: "Payment successful",
     payment_failed: "Payment failed",
-    download_dossier: "Download Bilingual PDF Dossier",
+    download_dossier: "Download PDF Dossier (NCH Evidence)",
     view_dossier: "View Defense Dossier",
     simulate_claim: "Simulate WhatsApp Buyer Claim",
     send_whatsapp_message: "Send Inbound Claim",
@@ -221,7 +221,7 @@ export const STRINGS: Record<Language, I18nDictionary> = {
     awaiting_approval: "स्वीकृति की प्रतीक्षा है",
     payment_successful: "भुगतान सफल",
     payment_failed: "भुगतान विफल",
-    download_dossier: "द्विभाषी पीडीएफ डोजियर डाउनलोड करें",
+    download_dossier: "पीडीएफ साक्ष्य डोजियर डाउनलोड करें (NCH हेतु)",
     view_dossier: "साक्ष्य डोजियर देखें",
     simulate_claim: "व्हाट्सएप ग्राहक दावा सिमुलेटर",
     send_whatsapp_message: "व्हाट्सएप संदेश भेजें",
@@ -315,7 +315,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("phalanx_lang");
+      const saved = localStorage.getItem("bharatraksha_lang") || localStorage.getItem("phalanx_lang");
       if (saved === "hi" || saved === "en") {
         setLanguageState(saved);
       }
@@ -327,7 +327,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     try {
-      localStorage.setItem("phalanx_lang", lang);
+      localStorage.setItem("bharatraksha_lang", lang);
     } catch {
       // ignore storage exceptions
     }

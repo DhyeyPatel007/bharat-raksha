@@ -55,6 +55,11 @@ export default function BharatRakshaHomePage() {
   }, []);
 
   const handleResetDemo = async () => {
+    const confirmed = window.confirm(
+      "This will restore the 3 seeded cases and discard test changes. Continue?"
+    );
+    if (!confirmed) return;
+
     setResetting(true);
     try {
       const res = await fetch("/api/upi/cases", {
@@ -163,16 +168,16 @@ export default function BharatRakshaHomePage() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f8fafc",
-        color: "#0f172a",
+        backgroundColor: "#F7F3EA",
+        color: "#1A1A1A",
         fontFamily: "var(--font-sans, system-ui, sans-serif)",
       }}
     >
       {/* 1. TOP GLOBAL NAVIGATION (100% BharatRaksha — No PayPal) */}
       <header
         style={{
-          borderBottom: "1px solid #e2e8f0",
-          backgroundColor: "#ffffff",
+          borderBottom: "1px solid #E6DFD5",
+          backgroundColor: "#F7F3EA",
           position: "sticky",
           top: 0,
           zIndex: 50,
@@ -194,24 +199,24 @@ export default function BharatRakshaHomePage() {
           {/* Logo & Subtitle */}
           <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "20px", fontWeight: 900, letterSpacing: "-0.5px", color: "#0f172a" }}>
-                🛡️ BharatRaksha <span style={{ fontWeight: 400, color: "#64748b", fontSize: "16px" }}>(भारत रक्षा)</span>
+              <span style={{ fontSize: "20px", fontWeight: 900, letterSpacing: "-0.5px", color: "#1A1A1A" }}>
+                🛡️ BharatRaksha <span style={{ fontWeight: 400, color: "#755E46", fontSize: "16px" }}>(भारत रक्षा)</span>
               </span>
               <span
                 style={{
                   fontSize: "11px",
                   fontWeight: 700,
-                  backgroundColor: "#ecfdf5",
-                  color: "#059669",
+                  backgroundColor: "#F5E8E8",
+                  color: "#800020",
                   padding: "3px 9px",
-                  borderRadius: "14px",
-                  border: "1px solid #a7f3d0",
+                  borderRadius: "4px",
+                  border: "1px solid #E8C5C8",
                 }}
               >
                 LIVE SHIELD
               </span>
             </div>
-            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+            <div style={{ fontSize: "12px", color: "#755E46", marginTop: "2px" }}>
               {language === "hi"
                 ? "भारतीय D2C विक्रेताओं के लिए स्वायत्त यूपीआई रिफंड एवं दावा सुरक्षा ढाल"
                 : "Autonomous Refund & Claim Adjudication Shield for Indian D2C Brands"}
@@ -227,9 +232,9 @@ export default function BharatRakshaHomePage() {
                 fontWeight: 700,
                 padding: "7px 14px",
                 borderRadius: "8px",
-                border: "1px solid #cbd5e1",
+                border: "1px solid #D4C9BC",
                 backgroundColor: "#ffffff",
-                color: "#0f172a",
+                color: "#1A1A1A",
                 textDecoration: "none",
                 display: "inline-flex",
                 alignItems: "center",
@@ -244,7 +249,7 @@ export default function BharatRakshaHomePage() {
               style={{
                 fontSize: "12px",
                 fontWeight: 600,
-                color: "#475569",
+                color: "#5A554E",
                 textDecoration: "none",
                 padding: "0 4px",
               }}
@@ -263,9 +268,9 @@ export default function BharatRakshaHomePage() {
                 fontWeight: 700,
                 padding: "7px 14px",
                 borderRadius: "8px",
-                border: "1px solid #cbd5e1",
-                backgroundColor: realIntakeOpen ? "#eff6ff" : "#ffffff",
-                color: realIntakeOpen ? "#1d4ed8" : "#0f172a",
+                border: "1px solid #D4C9BC",
+                backgroundColor: realIntakeOpen ? "#F5E8E8" : "#ffffff",
+                color: realIntakeOpen ? "#800020" : "#1A1A1A",
                 cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
@@ -288,9 +293,9 @@ export default function BharatRakshaHomePage() {
                 fontWeight: 700,
                 padding: "7px 14px",
                 borderRadius: "8px",
-                border: "1px solid #cbd5e1",
+                border: "1px solid #D4C9BC",
                 backgroundColor: telegramDrawerOpen ? "#f0fdf4" : "#ffffff",
-                color: telegramDrawerOpen ? "#15803d" : "#0f172a",
+                color: telegramDrawerOpen ? "#15803d" : "#1A1A1A",
                 cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
@@ -311,9 +316,9 @@ export default function BharatRakshaHomePage() {
                 fontWeight: 600,
                 padding: "7px 12px",
                 borderRadius: "8px",
-                border: "1px solid #cbd5e1",
+                border: "1px solid #D4C9BC",
                 backgroundColor: "#ffffff",
-                color: "#475569",
+                color: "#5A554E",
                 cursor: resetting ? "not-allowed" : "pointer",
               }}
               title="Reset seeded test cases to clean starting state"
@@ -330,11 +335,11 @@ export default function BharatRakshaHomePage() {
       {/* 2. SUB-HEADER: TELEMETRY BAR */}
       <div
         style={{
-          backgroundColor: "#f1f5f9",
-          borderBottom: "1px solid #e2e8f0",
+          backgroundColor: "#F2EDE2",
+          borderBottom: "1px solid #E6DFD5",
           padding: "7px 24px",
           fontSize: "11px",
-          color: "#475569",
+          color: "#5A554E",
         }}
       >
         <div
@@ -351,16 +356,16 @@ export default function BharatRakshaHomePage() {
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             <span style={{ display: "inline-block", width: "7px", height: "7px", borderRadius: "50%", backgroundColor: "#10b981" }} />
             <strong>{language === "hi" ? "सिस्टम टेलीमेट्री स्थिति" : "System Telemetry Status"}:</strong>
-            <span>Razorpay: <code style={{ color: "#0f172a", fontWeight: 700 }}>rzp_test_* active</code></span>
+            <span>Razorpay: <code style={{ color: "#1A1A1A", fontWeight: 700 }}>rzp_test_* active</code></span>
             <span>•</span>
-            <span>Shiprocket: <code style={{ color: "#0f172a", fontWeight: 700 }}>AWB Telemetry Active</code></span>
+            <span>Shiprocket: <code style={{ color: "#1A1A1A", fontWeight: 700 }}>AWB Telemetry Active</code></span>
             <span>•</span>
-            <span>Intake: <code style={{ color: "#0f172a", fontWeight: 700 }}>Telegram Bot API Gateway</code></span>
+            <span>Intake: <code style={{ color: "#1A1A1A", fontWeight: 700 }}>Telegram Bot API Gateway</code></span>
             <span>•</span>
-            <span>Auto-Refund Ceiling: <code style={{ color: "#0f172a", fontWeight: 700 }}>₹0 (Approval Required)</code></span>
+            <span>Auto-Refund Ceiling: <code style={{ color: "#1A1A1A", fontWeight: 700 }}>₹0 (Approval Required)</code></span>
           </div>
 
-          <div style={{ fontSize: "11px", color: "#64748b" }}>
+          <div style={{ fontSize: "11px", color: "#755E46" }}>
             {language === "hi"
               ? "सटीक स्कोरिंग • एलएलएम जूरी विश्लेषण • प्रत्येक रिफंड से पहले मानवीय स्वीकृति"
               : "Deterministic scoring • LLM juror reasoning • Human approval before every refund"}
@@ -373,7 +378,7 @@ export default function BharatRakshaHomePage() {
         <div
           style={{
             backgroundColor: "#ffffff",
-            borderBottom: "2px solid #2563eb",
+            borderBottom: "2px solid #800020",
             padding: "24px",
             boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
           }}
@@ -381,10 +386,10 @@ export default function BharatRakshaHomePage() {
           <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
               <div>
-                <div style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a" }}>
+                <div style={{ fontSize: "16px", fontWeight: 800, color: "#1A1A1A" }}>
                   💳 {language === "hi" ? "वास्तविक रेज़रपे भुगतान से नया मामला दर्ज करें" : "New Case from Real Razorpay Payment"}
                 </div>
-                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                <div style={{ fontSize: "12px", color: "#755E46", marginTop: "2px" }}>
                   {language === "hi"
                     ? "एक वास्तविक रेज़रपे टेस्ट-मोड भुगतान आईडी (pay_...) और १२-अंकीय यूपीआई आरआरएन दर्ज करें। ऐप सीधे रेज़रपे एपीआई से लाइव विवरण प्राप्त करेगा।"
                     : "Paste a real Razorpay test-mode payment ID (pay_...) and 12-digit UPI RRN. BharatRaksha fetches that payment live from Razorpay API using keys from .env.local."}
@@ -398,7 +403,7 @@ export default function BharatRakshaHomePage() {
                   background: "none",
                   border: "none",
                   fontSize: "14px",
-                  color: "#64748b",
+                  color: "#755E46",
                   cursor: "pointer",
                 }}
               >
@@ -416,7 +421,7 @@ export default function BharatRakshaHomePage() {
                 }}
               >
                 <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#5A554E", marginBottom: "4px" }}>
                     Razorpay Payment ID (pay_...) *
                   </label>
                   <input
@@ -429,7 +434,7 @@ export default function BharatRakshaHomePage() {
                       width: "100%",
                       padding: "8px 12px",
                       borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid #D4C9BC",
                       fontSize: "13px",
                       fontFamily: "var(--font-mono, monospace)",
                     }}
@@ -437,7 +442,7 @@ export default function BharatRakshaHomePage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#5A554E", marginBottom: "4px" }}>
                     UPI RRN (12 Digits) *
                   </label>
                   <input
@@ -451,7 +456,7 @@ export default function BharatRakshaHomePage() {
                       width: "100%",
                       padding: "8px 12px",
                       borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid #D4C9BC",
                       fontSize: "13px",
                       fontFamily: "var(--font-mono, monospace)",
                     }}
@@ -459,7 +464,7 @@ export default function BharatRakshaHomePage() {
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#5A554E", marginBottom: "4px" }}>
                     Claim Category
                   </label>
                   <select
@@ -469,7 +474,7 @@ export default function BharatRakshaHomePage() {
                       width: "100%",
                       padding: "8px 12px",
                       borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
+                      border: "1px solid #D4C9BC",
                       fontSize: "13px",
                       backgroundColor: "#ffffff",
                     }}
@@ -483,7 +488,7 @@ export default function BharatRakshaHomePage() {
               </div>
 
               <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#5A554E", marginBottom: "4px" }}>
                   Customer Narrative / Complaint
                 </label>
                 <input
@@ -495,14 +500,14 @@ export default function BharatRakshaHomePage() {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
+                    border: "1px solid #D4C9BC",
                     fontSize: "13px",
                   }}
                 />
               </div>
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
-                <div style={{ fontSize: "11px", color: "#64748b" }}>
+                <div style={{ fontSize: "11px", color: "#755E46" }}>
                   🔒 Live sandbox safe: Only <code>rzp_test_*</code> keys accepted. Never calls live production money rails.
                 </div>
 
@@ -512,7 +517,7 @@ export default function BharatRakshaHomePage() {
                   style={{
                     padding: "9px 20px",
                     borderRadius: "8px",
-                    backgroundColor: "#2563eb",
+                    backgroundColor: "#800020",
                     color: "#ffffff",
                     border: "none",
                     fontWeight: 700,
@@ -558,10 +563,10 @@ export default function BharatRakshaHomePage() {
           <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
               <div>
-                <div style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a" }}>
+                <div style={{ fontSize: "16px", fontWeight: 800, color: "#1A1A1A" }}>
                   ✈️ {language === "hi" ? "टेलीग्राम बॉट इनटेक सिम्युलेटर" : "Telegram Bot Intake Simulator"}
                 </div>
-                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                <div style={{ fontSize: "12px", color: "#755E46", marginTop: "2px" }}>
                   {language === "hi"
                     ? "टेलीग्राम बॉट वेबहुक (/api/upi/webhooks/telegram) पर आने वाले ग्राहक दावों का अनुकरण करें। मुफ्त, त्वरित और व्यावसायिक सत्यापन की आवश्यकता नहीं।"
                     : "Simulate incoming buyer claims via Telegram Bot API webhook (/api/upi/webhooks/telegram). Free, instant setup with BotFather without business verification."}
@@ -575,7 +580,7 @@ export default function BharatRakshaHomePage() {
                   background: "none",
                   border: "none",
                   fontSize: "14px",
-                  color: "#64748b",
+                  color: "#755E46",
                   cursor: "pointer",
                 }}
               >
@@ -597,8 +602,8 @@ export default function BharatRakshaHomePage() {
                 style={{
                   padding: "8px 14px",
                   borderRadius: "8px",
-                  border: "1px solid #cbd5e1",
-                  backgroundColor: "#f8fafc",
+                  border: "1px solid #D4C9BC",
+                  backgroundColor: "#F7F3EA",
                   fontSize: "12px",
                   fontWeight: 600,
                   cursor: "pointer",
@@ -619,8 +624,8 @@ export default function BharatRakshaHomePage() {
                 style={{
                   padding: "8px 14px",
                   borderRadius: "8px",
-                  border: "1px solid #cbd5e1",
-                  backgroundColor: "#f8fafc",
+                  border: "1px solid #D4C9BC",
+                  backgroundColor: "#F7F3EA",
                   fontSize: "12px",
                   fontWeight: 600,
                   cursor: "pointer",
@@ -641,8 +646,8 @@ export default function BharatRakshaHomePage() {
                 style={{
                   padding: "8px 14px",
                   borderRadius: "8px",
-                  border: "1px solid #cbd5e1",
-                  backgroundColor: "#f8fafc",
+                  border: "1px solid #D4C9BC",
+                  backgroundColor: "#F7F3EA",
                   fontSize: "12px",
                   fontWeight: 600,
                   cursor: "pointer",
@@ -679,7 +684,7 @@ export default function BharatRakshaHomePage() {
             {/* Custom Telegram Message Input */}
             <div style={{ display: "flex", gap: "10px", alignItems: "flex-end", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: "280px" }}>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#64748b", marginBottom: "4px" }}>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#755E46", marginBottom: "4px" }}>
                   {language === "hi" ? "कस्टम टेलीग्राम संदेश (RRN एवं Order ID सहित)" : "Custom Telegram Message (Include 12-digit RRN & Order ID)"}
                 </label>
                 <input
@@ -691,14 +696,14 @@ export default function BharatRakshaHomePage() {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
+                    border: "1px solid #D4C9BC",
                     fontSize: "13px",
                   }}
                 />
               </div>
 
               <div style={{ width: "160px" }}>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#64748b", marginBottom: "4px" }}>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#755E46", marginBottom: "4px" }}>
                   Telegram User ID / Phone
                 </label>
                 <input
@@ -709,7 +714,7 @@ export default function BharatRakshaHomePage() {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
+                    border: "1px solid #D4C9BC",
                     fontSize: "13px",
                   }}
                 />
@@ -749,14 +754,14 @@ export default function BharatRakshaHomePage() {
         <section
           style={{
             backgroundColor: "#ffffff",
-            border: "1px solid #e2e8f0",
+            border: "1px solid #E6DFD5",
             borderRadius: "18px",
             padding: "36px 32px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
             marginBottom: "32px",
           }}
         >
-          <div style={{ display: "inline-block", fontSize: "12px", fontWeight: 700, color: "#2563eb", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <div style={{ display: "inline-block", fontSize: "12px", fontWeight: 700, color: "#800020", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
             {language === "hi" ? "स्वायत्त यूपीआई रिफंड एवं दावा सुरक्षा ढाल" : "Autonomous UPI Dispute & Claim Defense Shield"}
           </div>
 
@@ -764,7 +769,7 @@ export default function BharatRakshaHomePage() {
             style={{
               fontSize: "32px",
               fontWeight: 900,
-              color: "#0f172a",
+              color: "#1A1A1A",
               letterSpacing: "-1px",
               margin: "0 0 12px 0",
               lineHeight: 1.25,
@@ -773,14 +778,14 @@ export default function BharatRakshaHomePage() {
             {language === "hi" ? (
               <>
                 यूपीआई रिफंड से पहले मर्चेंट की सुरक्षा।{" "}
-                <span style={{ color: "#64748b", fontWeight: 600 }}>
+                <span style={{ color: "#755E46", fontWeight: 600 }}>
                   फॉरेंसिक साक्ष्य, ३-जूरी ऑडिट, एवं अनिवार्य मानवीय स्वीकृति गेट।
                 </span>
               </>
             ) : (
               <>
                 Disputes defended before UPI refunds bleed your store.{" "}
-                <span style={{ color: "#64748b", fontWeight: 600 }}>
+                <span style={{ color: "#755E46", fontWeight: 600 }}>
                   Forensic proof, 3-juror audit, and mandatory human approval gate.
                 </span>
               </>
@@ -790,7 +795,7 @@ export default function BharatRakshaHomePage() {
           <p
             style={{
               fontSize: "15px",
-              color: "#475569",
+              color: "#5A554E",
               lineHeight: 1.6,
               maxWidth: "880px",
               margin: 0,
@@ -817,14 +822,14 @@ export default function BharatRakshaHomePage() {
               backgroundColor: "#ffffff",
               padding: "20px",
               borderRadius: "14px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
               boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
             }}
           >
-            <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: "#755E46", textTransform: "uppercase" }}>
               {t.metric_total_claims}
             </div>
-            <div style={{ fontSize: "28px", fontWeight: 900, color: "#0f172a", marginTop: "4px" }}>
+            <div style={{ fontSize: "28px", fontWeight: 900, color: "#1A1A1A", marginTop: "4px" }}>
               {loading ? <span style={{ color: "#94a3b8" }}>—</span> : metrics.totalClaims}
             </div>
           </div>
@@ -835,7 +840,7 @@ export default function BharatRakshaHomePage() {
               backgroundColor: "#ffffff",
               padding: "20px",
               borderRadius: "14px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
               boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
             }}
           >
@@ -853,7 +858,7 @@ export default function BharatRakshaHomePage() {
               backgroundColor: "#ffffff",
               padding: "20px",
               borderRadius: "14px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
               boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
             }}
           >
@@ -871,7 +876,7 @@ export default function BharatRakshaHomePage() {
               backgroundColor: "#ffffff",
               padding: "20px",
               borderRadius: "14px",
-              border: "1px solid #e2e8f0",
+              border: "1px solid #E6DFD5",
               boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
             }}
           >
@@ -881,7 +886,7 @@ export default function BharatRakshaHomePage() {
             <div style={{ fontSize: "28px", fontWeight: 900, color: "#059669", marginTop: "4px" }}>
               {loading ? <span style={{ color: "#94a3b8" }}>—</span> : "₹0.00"}
             </div>
-            <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+            <div style={{ fontSize: "11px", color: "#755E46", marginTop: "2px" }}>
               {language === "hi" ? "प्रत्येक रिफंड से पहले मानवीय स्वीकृति अनिवार्य" : "Human approval required before every refund"}
             </div>
           </div>
@@ -890,10 +895,10 @@ export default function BharatRakshaHomePage() {
         {/* TRANSACTION LIST SECTION */}
         <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
           <div>
-            <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0 }}>
+            <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#1A1A1A", margin: 0 }}>
               {language === "hi" ? "यूपीआई दावा एवं रिफंड इतिहास" : "Adjudicated Claim Ledger"}
             </h2>
-            <p style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 0 0" }}>
+            <p style={{ fontSize: "12px", color: "#755E46", margin: "2px 0 0 0" }}>
               {language === "hi"
                 ? "टेलीग्राम बॉट, रेज़रपे RRN तथा शिपराकेट AWB टेलीमेट्री से सत्यापित मामले"
                 : "Seeded and real claims evaluated live with 3-juror audit & human gate"}
@@ -902,7 +907,7 @@ export default function BharatRakshaHomePage() {
         </div>
 
         {loading ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>Loading UPI transactions...</div>
+          <div style={{ padding: "40px", textAlign: "center", color: "#755E46" }}>Loading UPI transactions...</div>
         ) : (
           <UpiTransactionList cases={cases} onCaseUpdated={handleCaseUpdated} />
         )}
@@ -912,15 +917,15 @@ export default function BharatRakshaHomePage() {
           style={{
             marginTop: "48px",
             padding: "18px 22px",
-            backgroundColor: "#f1f5f9",
+            backgroundColor: "#F2EDE2",
             borderRadius: "12px",
-            border: "1px solid #e2e8f0",
+            border: "1px solid #E6DFD5",
             fontSize: "12px",
-            color: "#475569",
+            color: "#5A554E",
             lineHeight: 1.6,
           }}
         >
-          <strong style={{ color: "#0f172a" }}>📌 {language === "hi" ? "महत्वपूर्ण यूपीआई वास्तविकता (Ground Truth)" : "Important UPI Ground Truth"}:</strong>{" "}
+          <strong style={{ color: "#1A1A1A" }}>📌 {language === "hi" ? "महत्वपूर्ण यूपीआई वास्तविकता (Ground Truth)" : "Important UPI Ground Truth"}:</strong>{" "}
           {t.upi_truth_notice}
         </div>
       </main>
