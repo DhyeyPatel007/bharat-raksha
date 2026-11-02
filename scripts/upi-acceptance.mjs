@@ -12,19 +12,21 @@ async function testAcceptance() {
   const resCases = await fetch(`${base}/api/upi/cases`);
   const casesData = await resCases.json();
   console.log(`[PASS] GET /api/upi/cases -> HTTP ${resCases.status}, count=${casesData.cases.length}`);
-  if (casesData.cases.length !== 3) throw new Error("Expected 3 seeded cases");
+  if (casesData.cases.length < 3) throw new Error("Expected at least 3 seeded cases");
 
   // Step 2: Case A verification
   const caseA = casesData.cases.find((c) => c.case_id === "UPI-CASE-A");
   console.log(`[PASS] Case A: score=${caseA.score}, verdict=${caseA.verdict}, status=${caseA.status}`);
   if (caseA.score !== 82 || caseA.verdict !== "REJECT_CLAIM") throw new Error("Case A mismatch");
 
-  // Step 3: Case B verification
+  // Step 3: Case B verification (Now AWAITING_HUMAN_APPROVAL under default 0 auto-refund ceiling)
   const caseB = casesData.cases.find((c) => c.case_id === "UPI-CASE-B");
   console.log(
-    `[PASS] Case B: score=${caseB.score}, verdict=${caseB.verdict}, refund=${caseB.recommended_refund_paise} paise`
+    `[PASS] Case B: score=${caseB.score}, verdict=${caseB.verdict}, refund=${caseB.recommended_refund_paise} paise, status=${caseB.status}`
   );
-  if (caseB.score !== 60 || caseB.recommended_refund_paise !== 30000) throw new Error("Case B mismatch");
+  if (caseB.score !== 60 || caseB.recommended_refund_paise !== 30000 || caseB.status !== "AWAITING_HUMAN_APPROVAL") {
+    throw new Error(`Case B mismatch: score=${caseB.score}, refund=${caseB.recommended_refund_paise}, status=${caseB.status}`);
+  }
 
   // Step 4: Case C initial state verification
   const caseC = casesData.cases.find((c) => c.case_id === "UPI-CASE-C");
@@ -128,6 +130,21 @@ async function testAcceptance() {
   );
   if (failedCase?.guardrail_state !== "HARD_BLOCK_FAILED_PAYMENT") {
     throw new Error("Expected HARD_BLOCK_FAILED_PAYMENT");
+  }
+
+  // Step 10b: Telegram Bot Webhook Intake Test
+  const resTelegram = await fetch(`${base}/api/upi/webhooks/telegram`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "Order ORD-KRY-8802 with RRN 631518440293 has scratch on panel",
+      chatId: "9845102931",
+    }),
+  });
+  const tgData = await resTelegram.json();
+  console.log(`[PASS] Telegram Bot Webhook -> HTTP ${resTelegram.status}, status=${tgData.status}`);
+  if (resTelegram.status !== 200 || tgData.status !== "ok") {
+    throw new Error("Telegram Bot webhook check failed");
   }
 
   // Step 11: Shiprocket Mock Server check

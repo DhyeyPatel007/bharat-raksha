@@ -1,122 +1,103 @@
-# PHALANX — PayPal dispute-defense swarm
+# BharatRaksha (भारत रक्षा) — Autonomous UPI Refund & Claim Adjudication Shield
 
-Adversarial dispute-defense workbench for a small PayPal merchant. Built for the **PayPal AI Hackathon** (Devpost: "Build What's Next with PayPal and AI").
+Autonomous dispute defense and claim adjudication shield built for Indian D2C merchants operating on UPI rails.
 
-**Deadline:** Nov 12, 2026, 12:00 PM PST = Nov 13, 2026, 1:30 AM IST.
+## Overview
+Indian D2C brands face relentless customer claims ("Money debited twice via GPay!", "Received an empty box!", "Order delayed in transit!"). Unlike credit cards or PayPal, **UPI settles immediately into the merchant's bank account with zero escrow, zero dispute hold, and no NPCI arbitration mechanism**. Any refund issued is direct, irreversible money loss.
 
-When PayPal sends a `CUSTOMER.DISPUTE.CREATED` webhook, PHALANX pulls the dispute + original transaction, assembles the merchant's own evidence, runs a deterministic checklist, drafts a rebuttal, attacks it with a second adversarial pass (max 3 iterations), and — only after a human approves — executes exactly one PayPal action: `provide-evidence` OR `make-offer` OR `accept-claim`.
-
-> Status (Oct 31, 2026): **basics + steps 5–7 + Phase 1 LLM wiring (multi-provider system, 3-juror layer, Judge framing, Vercel deploy button).** Negative tests (84/84), unit checks, telemetry, deterministic fallback preserved. Still no live Sandbox execution — that needs Dhyey's Sandbox accounts.
-
-## Deploy your own copy
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FDhyeyPatel007%2Fphalanx)
-
-1. Click **Deploy with Vercel** above to clone and deploy to your Vercel account.
-2. (Optional) Set `GEMINI_API_KEY` (or your preferred AI provider key) in your Vercel project environment variables.
-3. Deploy! The seeded demo runs immediately with zero configuration.
-4. For live PayPal Sandbox testing, add `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `PAYPAL_WEBHOOK_ID`.
-
-## Live demo
-
-**Seeded demo: deployment BLOCKED (Oct 30) — no demo URL exists yet, none is claimed here.** The Vercel connection used here has no grant for Dhyey's Vercel team (`dhyey-patels-projects-80ed463b`): both `create_git_project` and `create_project` return 403, and there is no logged-in Vercel CLI on this machine (`vercel login` is interactive). To unblock — one Dhyey action: grant the Vercel connection access to the team (Vercel dashboard team access/consent), or from a logged-in machine run `vercel login` then `vercel --scope dhyey-patels-projects-80ed463b project add phalanx`. After that, linking repo `DhyeyPatel007/phalanx` will auto-deploy on every push. The app is deploy-ready: `npm run build` passes, and the seeded demo needs no environment variables.
-
-## What it does
-- Webhook ingest + signature verification + idempotent dispute creation
-- Dispute list + detail from the live Disputes API (Sandbox), merged with seeded merchant evidence
-- Deterministic evidence checklist + score (0–100), Prosecutor draft, 3-juror adversarial pass, full debate transcript
-- Human approval gate, then exactly one executed PayPal action per approved dispute
-- PDF evidence dossier (only evidence PayPal requested) — 5 pages: cover, invoice/order, tracking proof, merchant-log correlation, evidence manifest with SHA-256
-- Offer/accept paths with stage gating, offer/accept type checks, downgrade resolution, and an 84-test negative suite (`scripts/negative-tests.mjs`)
-- SOC war-room UI: server-side telemetry bar, AG Grid dispute ledger, debate drawer
-
-## What it does NOT do
-- No carrier scraping, no buyer IP/device fingerprinting, no carrier delivery photo (PayPal does not return these).
-- No automatic filing of carrier insurance claims (shown as a manual next step only).
-- No bank/card-issuer chargeback handling, arbitration, or appeals.
-- No real-money / production PayPal. Sandbox only.
-- Checklist scores are an internal heuristic, NOT a win probability. PHALANX does not know how PayPal or a card issuer will decide a case.
-- Seeded data is simulated for the demo. A production version would need the merchant's real order, shipping, and support systems — that integration is not built here.
-
-## AI providers (general API system)
-
-PHALANX supports multiple OpenAI-compatible LLM providers through a unified interface (`src/lib/llm.ts`). The LLM drafts rebuttal wording (Prosecutor), evaluates gaps via 3 parallel jurors (Evidence, Policy, Buyer-Sympathy), and generates issue framing and verdict reasoning (Judge). The checklist score, verdict routing, and approval gates remain 100% deterministic code.
-
-### Supported providers
-- **Gemini** (default): `LLM_PROVIDER=gemini`, default model `gemini-3.8-flash`, env `GEMINI_API_KEY`. Connects via Google's OpenAI-compatible endpoint. *Free-tier note:* Google AI Studio provides a free tier verified at $0.
-- **OpenAI**: `LLM_PROVIDER=openai`, default model `gpt-4o-mini`, env `OPENAI_API_KEY`.
-- **xAI Grok**: `LLM_PROVIDER=grok`, default model `grok-4`, env `XAI_API_KEY`.
-- **DeepSeek**: `LLM_PROVIDER=deepseek`, default model `deepseek-chat`, env `DEEPSEEK_API_KEY`.
-- **Moonshot Kimi**: `LLM_PROVIDER=kimi`, default model `kimi-k2.5`, env `MOONSHOT_API_KEY`.
-- **Groq**: `LLM_PROVIDER=groq`, default model `llama-3.3-70b-versatile`, env `GROQ_API_KEY`.
-- **NVIDIA NIM**: `LLM_PROVIDER=nvidia`, default model `nvidia/llama-3.1-nemotron-70b-instruct`, env `NVIDIA_API_KEY` (starts with `nvapi-`). *Terms note:* NVIDIA's free tier is trial/testing-only under its terms (not for production use) — Gemini remains the recommended free path for end users.
-- **Custom**: `LLM_PROVIDER=custom`, base URL `LLM_BASE_URL`, model `LLM_MODEL`, key `LLM_API_KEY`.
-
-### Deterministic fallback
-If no API key is configured or if a provider call fails, PHALANX silently and reliably falls back to deterministic template rebuttal drafting, single deterministic Red-Team review, and standard score breakdown. The app never crashes or stalls when an LLM is unavailable.
-
-## Demo scenarios (seeded, labelled SIMULATED)
-| ID | Reason | Amount | Expected outcome |
-|---|---|---|---|
-| PP-D-88412 | MERCHANDISE_OR_SERVICE_NOT_RECEIVED | $480 | Contest — `provide-evidence` (PROOF_OF_FULFILLMENT) |
-| PP-D-88413 | MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED | $210 | Offer — `make-offer`, 40% partial refund |
-| PP-D-88414 | MERCHANDISE_OR_SERVICE_NOT_RECEIVED | $95 | Concede — `accept-claim` |
-
-## Setup (seeded demo)
-```bash
-cp .env.example .env.local
-npm install
-npm run dev
-```
-Seeded demo works without Sandbox credentials. Live Sandbox needs a PayPal Developer REST app + webhook — see the Sandbox setup runbook in the project files.
-
-### Run the 3 scenarios
-1. Open the app, click **Load seeded demo**.
-2. Click a row, click **Run swarm** — Scenario A shows Draft v1 rejected on the named merchant-log gap, then Draft v2 passing (60 → 85, CONTEST_HARD_PROOF). B scores 60 (DE_ESCALATE_OFFER), C scores 0 (CONCEDE_FAST_SETTLE).
-3. Click **Download evidence dossier (PDF)** for the 5-page dossier (SIMULATED watermark on seeded rows).
-4. Click **Approve**, then **Execute** — Execute refuses with `LIVE_EXECUTION_NOT_ENABLED` (by design: no Sandbox execution until Dhyey confirms Sandbox accounts). Execute without approval refuses with `APPROVAL_REQUIRED`.
-
-### Negative tests
-```bash
-npm run build
-PORT=3100 npx next start -p 3100
-PHALANX_BASE_URL=http://localhost:3100 node scripts/negative-tests.mjs
-```
-84 checks (brief §10.5): no-approval refusal, disallowed action + allowed list, stale approval, offer default/validation, duplicate webhook dedupe, fake webhook ignored + logged, PDFs for all 3 scenarios. Results print to the console; the report is written to `test-results/negative-tests.md` (local only, not committed).
-
-## Tools used (honest list)
-- **PayPal Disputes API (Sandbox)** — list/detail, webhook verification; execution calls are wired through the approval gate but refuse live calls until Sandbox is connected.
-- **AG Grid Community** — the dispute ledger (sorting, filtering, quick filter, pagination). No Enterprise features.
-- **pdf-lib** — server-side evidence dossier generation.
-- **LLM: Multi-provider support via OpenAI-compatible API (`src/lib/llm.ts`).** Supports Gemini (default), OpenAI, Grok, DeepSeek, Kimi, Groq, NVIDIA NIM, and custom endpoints. The LLM drafts rebuttal wording (Prosecutor), runs a 3-agent jury audit (Evidence, Policy, Buyer-Sympathy), and provides issue framing (Judge). The verdict, score, and PayPal execution gates remain 100% deterministic code. With no key, PHALANX falls back seamlessly to deterministic templates.
-- **Next.js 16 (App Router) + TypeScript**, in-memory/JSON evidence store. No database, no queue, no extra services.
-
-## Known limits
-- Live Sandbox execution is not enabled yet (needs Dhyey's Sandbox REST app, business + buyer accounts, webhook ID, and his live check). Seeded execution always refuses with `LIVE_EXECUTION_NOT_ENABLED`.
-- The seeded demo is simulated data: no real buyer, transaction, or delivery. A production version would need the merchant's real order, shipping, and support systems connected — that integration is not built here.
-- Checklist scores are an internal heuristic. PHALANX does not know, and must not claim, how PayPal or a card issuer will decide a case.
-- Webhook dedupe + approvals live in memory; a server restart resets demo state. Persistence beyond the demo session is explicitly not required.
-- No video or Devpost submission yet — Devpost About draft is in the project files (draft only, not submitted).
-
-## Full spec
-See `phalanx-build-brief.md` in the goal workspace. Master prompt: `phalanx-master-prompt.md`.
-
-## License
-MIT — Copyright (c) 2026 Dhyey Patel
-
+BharatRaksha provides an autonomous, pure-code adjudication shield that investigates customer claims against bank clearing records (Razorpay) and courier telemetry (Shiprocket), generates bilingual defense dossiers, and enforces a mandatory human approval gate before every single refund.
 
 ---
 
-# BHARAT RAKSHA / PHALANX UPI — Autonomous Refund Shield (India D2C)
+## What It Does
+- **Root Standalone Experience (`/`):** Dedicated Indian D2C workbench with full English ↔ हिंदी bilingual localization and zero page reload.
+- **Intake Channel:**
+  - **Telegram Bot API Today:** Free, instant setup via BotFather (`/api/upi/webhooks/telegram`, `TELEGRAM_BOT_TOKEN`). Parses 12-digit UPI RRNs (`/\b(\d{12})\b/`) and Order IDs (`/\b(ORD-[A-Z0-9-]+)\b/i`), and dispatches instant status updates and refund receipts via Telegram.
+  - **WhatsApp Cloud API Parked:** Parked in `src/lib/upi/whatsapp.ts` — returns when the merchant acquires an approved Meta WhatsApp Business Number.
+- **Visible Live Swarm Execution:**
+  - Every case features a **"Run swarm"** button that re-evaluates the forensic jurors live and animates the 4 deterministic stages:
+    1. `Razorpay RRN check`: Verifies captured vs failed bank attempts and duplicate deductions.
+    2. `Shiprocket tracking`: Verifies dispatch scale weights against courier hub weighment and doorstep OTP delivery.
+    3. `3-Juror Forensic Audit`: Evaluates Gateway (35 pts), Fulfillment Forensics (30 pts), and Buyer Risk Profile (17 pts).
+    4. `Guardrail Decision`: Enforces merchant approval requirements before refund execution.
+- **Approval Before Every Refund:**
+  - Configurable merchant auto-refund ceiling `AUTO_REFUND_CEILING_PAISE` (default 0 = approval required before every refund).
+  - Even small settlements (e.g. Case B ₹300) halt at the mandatory Human Approval Gate (`AWAITING_HUMAN_APPROVAL`).
+- **Real-Mode Intake:**
+  - "New case from real payment" flow allows merchants to paste real Razorpay test-mode payment IDs (`pay_...`) and RRNs.
+  - Fetches payment details live from Razorpay API (`https://api.razorpay.com/v1/payments/{id}`) using `rzp_test_*` credentials from `.env.local`.
+  - Gracefully falls back to sandbox emulator for mock seeded data.
+- **Bilingual Consumer Forum (NCH) Ready Dossier:**
+  - Server-side PDF generation (`pdf-lib`) assembling transaction evidence, courier scale matching, OTP logs, and SHA-256 evidence integrity manifests.
+- **Legacy Phalanx PayPal Tool:** Parked under `/legacy-phalanx/`.
 
-BharatRaksha (`/upi`) extends the PHALANX adversarial adjudication architecture to Indian UPI & D2C commerce.
+---
 
-### Domain Truths & Architecture
-- **UPI Settlement Reality:** UPI settles instantly into the merchant's bank account (or fails at clearing). There is no escrow, no dispute hold, and nothing to "contest" with NPCI.
-- **Autonomous Adjudication Shield:** Investigates buyer refund claims ("Money debited twice!", "Empty box delivered!", "Damaged item!", "Order stuck in transit!") using real gateway (Razorpay) + logistics (Shiprocket) telemetry.
-- **Deterministic Pure-Code Guardrail:**
-  - Auto-executes small partial settlements strictly under ₹500 (`AUTO_APPROVED_UNDER_500`).
-  - Mandatory Human Approval Gate locks all irreversible UPI refunds >= ₹500 (`LOCKED_AWAITING_HUMAN_APPROVAL`).
-  - Hard-blocks refunds on `failed` payments (`HARD_BLOCK_FAILED_PAYMENT`) and `authorized` payments (`HARD_BLOCK_AUTHORIZED_USE_VOID_OR_CAPTURE`).
-- **Bilingual Interface:** Instant 1-click English ↔ हिंदी toggle with zero page reload.
-- **Consumer Forum (NCH) Ready:** Generates bilingual PDF defense dossiers with RRN reconciliation, warehouse scale certificates, and OTP delivery telemetry.
+## 3 Seeded Demo Scenarios
+
+| Case ID | Order / Channel | Claim Details | Forensic Telemetry | Verdict & Outcome |
+|---|---|---|---|---|
+| **UPI-CASE-A** | ORD-KRY-8801 · ₹3,200 | Buyer alleges ₹3,200 debited twice and box delivered empty. | Single captured payment on Razorpay (second attempt timed out at NPCI); Shiprocket confirms doorstep OTP (4921) with delivery weight (0.85 kg) exactly matching Surat warehouse scale certificate. | **REJECT_CLAIM (82/100)** · Defense evidence dossier prepared for Consumer Forum. |
+| **UPI-CASE-B** | ORD-KRY-8802 · ₹1,200 | Buyer alleges scratch on casing, demands ₹1,200 full refund. | Razorpay captured ₹1,200; package delivered; buyer is a loyal 0-refund customer. 25% goodwill partial settlement (₹300) recommended. | **OFFER_PARTIAL (60/100)** · Halted at Human Gate (`AWAITING_HUMAN_APPROVAL`, ₹300). |
+| **UPI-CASE-C** | ORD-KRY-8803 · ₹2,499 | Buyer claims ₹2,499 paid 9 days ago, order untraceable. | Single captured payment; Shiprocket telemetry marks package lost at Bhiwandi sorting hub. Full refund justified. | **APPROVE_REFUND (15/100)** · Halted at Human Gate (`AWAITING_HUMAN_APPROVAL`, ₹2,499). |
+
+---
+
+## Quickstart Setup
+
+1. Copy environment template:
+```bash
+cp .env.example .env.local
+```
+
+2. Configure `.env.local`:
+```env
+# Razorpay Test Mode (Must start with rzp_test_)
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+
+# Shiprocket Telemetry (mock | live)
+SHIPROCKET_MODE=mock
+
+# Telegram Bot API (Optional for live outbound bot replies)
+TELEGRAM_BOT_TOKEN=
+```
+
+3. Install & Run:
+```bash
+npm install
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) for the standalone BharatRaksha home.
+
+---
+
+## Verification & Testing Suite
+
+- **Unit & UPI Tests:**
+```bash
+npm test
+```
+Runs 144 unit checks + 24 UPI checks (including Telegram parser regex, guardrail approval gates, Razorpay security, and Shiprocket mock).
+
+- **Production Build:**
+```bash
+npm run build
+```
+
+- **Localhost Acceptance Verifier:**
+```bash
+npx next start -p 3100
+npm run test:acceptance
+```
+Validates all cases, human approval gate, idempotency locks, PDF download, and Telegram webhook against port 3100.
+
+- **Negative Tests:**
+```bash
+node scripts/negative-tests.mjs
+```
+
+---
+
+## License
+MIT — Copyright (c) 2026 Dhyey Patel

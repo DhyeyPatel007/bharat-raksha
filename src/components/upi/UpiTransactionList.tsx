@@ -1,16 +1,110 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/lib/i18n";
 import type { UpiCase } from "@/lib/upi/types";
 
-interface Props {
-  cases: UpiCase[];
+interface ExecutionStep {
+  step: string;
+  title: string;
+  status: string;
+  detail: string;
 }
 
-export default function UpiTransactionList({ cases }: Props) {
+interface Props {
+  cases: UpiCase[];
+  onCaseUpdated?: (updatedCase: UpiCase) => void;
+}
+
+export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
   const { t, language } = useLanguage();
+  const [runningCaseId, setRunningCaseId] = useState<string | null>(null);
+  const [activeSteps, setActiveSteps] = useState<{ [caseId: string]: ExecutionStep[] }>({});
+  const [currentStepIndex, setCurrentStepIndex] = useState<{ [caseId: string]: number }>({});
+  const [runError, setRunError] = useState<{ [caseId: string]: string }>({});
+
+  const handleRunSwarm = async (e: React.MouseEvent, c: UpiCase) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const caseId = c.case_id;
+    setRunningCaseId(caseId);
+    setRunError((prev) => ({ ...prev, [caseId]: "" }));
+    setCurrentStepIndex((prev) => ({ ...prev, [caseId]: 0 }));
+
+    // Animated stepper preview
+    const initialSteps: ExecutionStep[] = [
+      {
+        step: "razorpay_rrn_check",
+        title: language === "hi" ? "रेज़रपे आरआरएन सत्यापन" : "Razorpay RRN Check",
+        status: "RUNNING",
+        detail: language === "hi" ? "बैंक लेज़र और दोहराव की जाँच हो रही है..." : "Verifying settlement and duplicate payment ledger...",
+      },
+      {
+        step: "shiprocket_tracking",
+        title: language === "hi" ? "शिपराकेट डिलीवरी टेलीमेट्री" : "Shiprocket Telemetry",
+        status: "PENDING",
+        detail: language === "hi" ? "कूरियर वजन और ओटीपी सत्यापन प्रतीक्षित..." : "Checking AWB status, courier weight certificate, and OTP...",
+      },
+      {
+        step: "juror_verdicts",
+        title: language === "hi" ? "३-जूरी फॉरेंसिक ऑडिट" : "3-Juror Forensic Audit",
+        status: "PENDING",
+        detail: language === "hi" ? "गेटवे + वेयरहाउस + खरीदार इतिहास जूरी विश्लेषण..." : "Evaluating Gateway, Logistics, and Buyer Risk profiles...",
+      },
+      {
+        step: "guardrail_decision",
+        title: language === "hi" ? "सुरक्षा सीमा एवं मानवीय गेट" : "Guardrail & Approval Gate",
+        status: "PENDING",
+        detail: language === "hi" ? "ऑटो-रिफंड सीमा और स्वीकृति आवश्यकताओं का मूल्यांकन..." : "Applying merchant auto-refund ceiling & human lock...",
+      },
+    ];
+    setActiveSteps((prev) => ({ ...prev, [caseId]: initialSteps }));
+
+    try {
+      // Step 1: Razorpay
+      setCurrentStepIndex((prev) => ({ ...prev, [caseId]: 0 }));
+      await new Promise((r) => setTimeout(r, 400));
+
+      // Step 2: Shiprocket
+      setCurrentStepIndex((prev) => ({ ...prev, [caseId]: 1 }));
+      await new Promise((r) => setTimeout(r, 400));
+
+      // Step 3: Jurors
+      setCurrentStepIndex((prev) => ({ ...prev, [caseId]: 2 }));
+      await new Promise((r) => setTimeout(r, 400));
+
+      // Step 4: Guardrail Call
+      setCurrentStepIndex((prev) => ({ ...prev, [caseId]: 3 }));
+
+      const res = await fetch(`/api/upi/cases/${caseId}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Swarm execution failed");
+      }
+
+      if (data.executionSteps) {
+        setActiveSteps((prev) => ({ ...prev, [caseId]: data.executionSteps }));
+      }
+      setCurrentStepIndex((prev) => ({ ...prev, [caseId]: 4 })); // all completed
+
+      if (data.case && onCaseUpdated) {
+        onCaseUpdated(data.case);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setRunError((prev) => ({ ...prev, [caseId]: msg }));
+    } finally {
+      setTimeout(() => {
+        setRunningCaseId(null);
+      }, 700);
+    }
+  };
 
   if (!cases || cases.length === 0) {
     return (
@@ -34,7 +128,7 @@ export default function UpiTransactionList({ cases }: Props) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "10px",
+        gap: "14px",
       }}
     >
       {cases.map((c) => {
@@ -50,6 +144,9 @@ export default function UpiTransactionList({ cases }: Props) {
           .toUpperCase();
 
         const amountInr = (c.claim_amount_paise / 100).toLocaleString("en-IN", {
+          maximumFractionDigits: 2,
+        });
+        const refundInr = (c.recommended_refund_paise / 100).toLocaleString("en-IN", {
           maximumFractionDigits: 2,
         });
 
@@ -68,7 +165,6 @@ export default function UpiTransactionList({ cases }: Props) {
           statusBg = "#ecfdf5";
           statusColor = "#059669";
           statusBorder = "#a7f3d0";
-          const refundInr = (c.recommended_refund_paise / 100).toLocaleString("en-IN");
           statusText =
             language === "hi"
               ? `₹${refundInr} स्वतः रिफंड सफल`
@@ -78,146 +174,284 @@ export default function UpiTransactionList({ cases }: Props) {
           statusColor = "#059669";
           statusBorder = "#a7f3d0";
           statusText =
-            language === "hi" ? "भुगतान सफल — रिफंड किया गया" : "Payment successful — Refunded";
+            language === "hi" ? `भुगतान सफल — ₹${refundInr} रिफंड` : `Payment successful — Refunded ₹${refundInr}`;
         } else if (c.status === "AWAITING_HUMAN_APPROVAL") {
           statusBg = "#fffbeb";
           statusColor = "#d97706";
           statusBorder = "#fde68a";
-          statusText = t.awaiting_approval;
+          statusText =
+            c.recommended_refund_paise > 0
+              ? (language === "hi" ? `स्वीकृति की प्रतीक्षा (₹${refundInr})` : `Awaiting approval (₹${refundInr})`)
+              : t.awaiting_approval;
         }
 
+        const isRunning = runningCaseId === c.case_id;
+        const steps = activeSteps[c.case_id];
+        const stepIdx = currentStepIndex[c.case_id] ?? 0;
+        const errMsg = runError[c.case_id];
+
         return (
-          <Link
+          <div
             key={c.case_id}
-            href={`/upi/${c.case_id}`}
             style={{
-              textDecoration: "none",
-              color: "inherit",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "16px 20px",
               backgroundColor: "#ffffff",
               border: "1px solid #e2e8f0",
               borderRadius: "14px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-              transition: "transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease",
-              cursor: "pointer",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "#94a3b8";
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#e2e8f0";
-              e.currentTarget.style.transform = "none";
-              e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.03)";
+              overflow: "hidden",
+              transition: "border-color 0.15s ease, box-shadow 0.15s ease",
             }}
           >
-            {/* Left side: Avatar + Details */}
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div
-                style={{
-                  width: "46px",
-                  height: "46px",
-                  borderRadius: "50%",
-                  backgroundColor: "#f1f5f9",
-                  border: "1px solid #e2e8f0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 700,
-                  fontSize: "15px",
-                  color: "#334155",
-                  letterSpacing: "0.5px",
-                  flexShrink: 0,
-                }}
-              >
-                {initials}
-              </div>
-
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontWeight: 700, fontSize: "15px", color: "#0f172a" }}>
-                    {buyerName}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontSize: "11px",
-                      color: "#64748b",
-                      backgroundColor: "#f8fafc",
-                      padding: "2px 7px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                    }}
-                  >
-                    {c.order_id}
-                  </span>
-                </div>
-
+            {/* Top Case Row */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 20px",
+                flexWrap: "wrap",
+                gap: "12px",
+              }}
+            >
+              {/* Left side: Avatar + Buyer + Telemetry tags */}
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: "260px" }}>
                 <div
                   style={{
+                    width: "46px",
+                    height: "46px",
+                    borderRadius: "50%",
+                    backgroundColor: "#f1f5f9",
+                    border: "1px solid #e2e8f0",
                     display: "flex",
                     alignItems: "center",
-                    gap: "8px",
-                    marginTop: "4px",
-                    fontSize: "12px",
-                    color: "#64748b",
+                    justifyContent: "center",
+                    fontWeight: 700,
+                    fontSize: "15px",
+                    color: "#334155",
+                    letterSpacing: "0.5px",
+                    flexShrink: 0,
                   }}
                 >
-                  <span
+                  {initials}
+                </div>
+
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 700, fontSize: "15px", color: "#0f172a" }}>
+                      {buyerName}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono, monospace)",
+                        fontSize: "11px",
+                        color: "#64748b",
+                        backgroundColor: "#f8fafc",
+                        padding: "2px 7px",
+                        borderRadius: "6px",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      {c.order_id}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        backgroundColor:
+                          c.score >= 80 ? "#ecfdf5" : c.score >= 50 ? "#fffbeb" : "#fff1f2",
+                        color:
+                          c.score >= 80 ? "#059669" : c.score >= 50 ? "#d97706" : "#e11d48",
+                        padding: "2px 8px",
+                        borderRadius: "12px",
+                        border: `1px solid ${
+                          c.score >= 80 ? "#a7f3d0" : c.score >= 50 ? "#fde68a" : "#fecdd3"
+                        }`,
+                      }}
+                    >
+                      {c.score}/100
+                    </span>
+                  </div>
+
+                  <div
                     style={{
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontWeight: 600,
-                      color: "#475569",
-                      backgroundColor: "#f1f5f9",
-                      padding: "1px 6px",
-                      borderRadius: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginTop: "4px",
+                      fontSize: "12px",
+                      color: "#64748b",
+                      flexWrap: "wrap",
                     }}
                   >
-                    RRN: {c.upi_rrn}
-                  </span>
-                  <span>•</span>
-                  <span>{c.case_id}</span>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono, monospace)",
+                        fontWeight: 600,
+                        color: "#475569",
+                        backgroundColor: "#f1f5f9",
+                        padding: "1px 6px",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      RRN: {c.upi_rrn}
+                    </span>
+                    <span>•</span>
+                    <span style={{ fontWeight: 600, color: "#334155" }}>{c.case_id}</span>
+                    <span>•</span>
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>{c.claim_type}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Right side: Big Amount + Status Pill */}
-            <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+              {/* Right side: Amount + Status Pill + Action Buttons */}
               <div
                 style={{
-                  fontSize: "20px",
-                  fontWeight: 800,
-                  color: "#0f172a",
-                  letterSpacing: "-0.5px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "16px",
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
                 }}
               >
-                ₹{amountInr}
-              </div>
+                <div style={{ textAlign: "right" }}>
+                  <div
+                    style={{
+                      fontSize: "19px",
+                      fontWeight: 800,
+                      color: "#0f172a",
+                      letterSpacing: "-0.5px",
+                    }}
+                  >
+                    ₹{amountInr}
+                  </div>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "3px 9px",
+                      borderRadius: "20px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      backgroundColor: statusBg,
+                      color: statusColor,
+                      border: `1px solid ${statusBorder}`,
+                      marginTop: "2px",
+                    }}
+                  >
+                    {statusText}
+                  </span>
+                </div>
 
-              <span
+                {/* Visible RUN SWARM button */}
+                <button
+                  type="button"
+                  onClick={(e) => handleRunSwarm(e, c)}
+                  disabled={isRunning}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    backgroundColor: isRunning ? "#e2e8f0" : "#0f172a",
+                    color: isRunning ? "#64748b" : "#ffffff",
+                    border: "none",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                    cursor: isRunning ? "not-allowed" : "pointer",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                  }}
+                  title="Run deterministic 3-juror audit live"
+                >
+                  <span>{isRunning ? "⚙️" : "⚡"}</span>
+                  <span>{isRunning ? t.running_swarm : t.run_swarm}</span>
+                </button>
+
+                {/* View Dossier Link */}
+                <Link
+                  href={`/upi/${c.case_id}`}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    backgroundColor: "#f8fafc",
+                    color: "#2563eb",
+                    border: "1px solid #cbd5e1",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                    textDecoration: "none",
+                    display: "inline-block",
+                  }}
+                >
+                  {language === "hi" ? "डोजियर देखें →" : "View Dossier →"}
+                </Link>
+              </div>
+            </div>
+
+            {/* Buyer message excerpt */}
+            <div
+              style={{
+                padding: "8px 20px 12px 20px",
+                borderTop: "1px solid #f1f5f9",
+                backgroundColor: "#fafafa",
+                fontSize: "12px",
+                color: "#475569",
+                fontStyle: "italic",
+              }}
+            >
+              &ldquo;{language === "hi" ? c.buyer_message_hi : c.buyer_message_en}&rdquo;
+            </div>
+
+            {/* Live Stepper Execution Drawer (Shown when running or recently run) */}
+            {steps && steps.length > 0 && (
+              <div
                 style={{
-                  display: "inline-block",
-                  padding: "4px 10px",
-                  borderRadius: "20px",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  backgroundColor: statusBg,
-                  color: statusColor,
-                  border: `1px solid ${statusBorder}`,
-                  letterSpacing: "0.2px",
+                  padding: "12px 20px",
+                  borderTop: "1px solid #e2e8f0",
+                  backgroundColor: "#f8fafc",
                 }}
               >
-                {statusText}
-              </span>
-            </div>
-          </Link>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", marginBottom: "8px", textTransform: "uppercase" }}>
+                  {language === "hi" ? "लाइव स्वार्म निष्पादन प्रगति" : "Live Swarm Execution Stages"}:
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "8px" }}>
+                  {steps.map((st, i) => {
+                    const isDone = stepIdx > i || stepIdx === 4;
+                    const isCurrent = stepIdx === i && isRunning;
+                    return (
+                      <div
+                        key={st.step}
+                        style={{
+                          padding: "8px 10px",
+                          borderRadius: "6px",
+                          border: `1px solid ${
+                            isDone ? "#a7f3d0" : isCurrent ? "#93c5fd" : "#e2e8f0"
+                          }`,
+                          backgroundColor: isDone ? "#ecfdf5" : isCurrent ? "#eff6ff" : "#ffffff",
+                          fontSize: "11px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, color: isDone ? "#059669" : isCurrent ? "#1d4ed8" : "#64748b" }}>
+                          <span>{isDone ? "✓" : isCurrent ? "⚙️" : "○"}</span>
+                          <span>{st.title}</span>
+                        </div>
+                        <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>
+                          {st.detail}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {errMsg && (
+                  <div style={{ marginTop: "8px", color: "#e11d48", fontSize: "11px", fontWeight: 600 }}>
+                    Error: {errMsg}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         );
       })}
     </div>
   );
 }
-

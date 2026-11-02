@@ -1,3 +1,4 @@
+// Parked — returns when the merchant has a WhatsApp business number.
 // WhatsApp Cloud API Webhook Parser, RRN/Order extractor & Outbound Receipt sender.
 // Extracts 12-digit UPI RRN: /\b(\d{12})\b/
 // Extracts Order ID: /\b(ORD-[A-Z0-9-]+)\b/i

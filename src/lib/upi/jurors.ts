@@ -149,8 +149,8 @@ export async function runUpiSwarm(params: {
   } else if (refundRatio === 0) {
     juror3Score = isLostOrStuck ? 0 : 5;
     juror3Verdict = isLostOrStuck ? "APPROVE_REFUND" : "OFFER_PARTIAL";
-    juror3CritiqueEn = `Low-risk customer with 0 prior claims. Eligible for consumer-friendly resolution under ₹500 guardrail.`;
-    juror3CritiqueHi = `कम जोखिम वाला विश्वसनीय ग्राहक (शून्य पूर्व विवाद)। ₹500 सीमा के अंतर्गत सद्भावना समाधान हेतु पात्र।`;
+    juror3CritiqueEn = `Low-risk customer with 0 prior claims. Eligible for consumer-friendly resolution. Guardrail requires human operator approval before execution.`;
+    juror3CritiqueHi = `कम जोखिम वाला विश्वसनीय ग्राहक (शून्य पूर्व विवाद)। सद्भावना समाधान हेतु पात्र। सुरक्षा सीमा मानवीय स्वीकृति की प्रतीक्षा में।`;
   }
 
   // 3. Stage 3: Arbiter 0-100 Checklist Math & Routing
@@ -217,7 +217,7 @@ export async function runUpiSwarm(params: {
       verdict: "OFFER_PARTIAL",
       timestamp: new Date().toISOString(),
       actionTaken:
-        "Cosmetic issue verified -> 25% partial settlement offer (₹300). Guardrail auto-approved (< ₹500).",
+        "Cosmetic issue verified -> 25% partial settlement offer (₹300). Guardrail locked awaiting human operator approval.",
     });
   }
 

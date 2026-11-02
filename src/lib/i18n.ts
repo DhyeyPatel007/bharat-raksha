@@ -30,6 +30,10 @@ export interface I18nDictionary {
   view_dossier: string;
   simulate_claim: string;
   send_whatsapp_message: string;
+  run_swarm: string;
+  running_swarm: string;
+  real_payment_intake: string;
+  send_telegram_message: string;
   confirm_approval_title: string;
   confirm_approval_desc: string;
   confirm_refund_btn: string;
@@ -129,6 +133,10 @@ export const STRINGS: Record<Language, I18nDictionary> = {
     view_dossier: "View Defense Dossier",
     simulate_claim: "Simulate WhatsApp Buyer Claim",
     send_whatsapp_message: "Send Inbound Claim",
+    run_swarm: "Run swarm",
+    running_swarm: "Running swarm...",
+    real_payment_intake: "New case from real payment",
+    send_telegram_message: "Send to Telegram Bot",
     confirm_approval_title: "Irreversible UPI Refund Confirmation",
     confirm_approval_desc: "You are authorizing an instant, irreversible UPI refund. This will debit your merchant settlement account via Razorpay API.",
     confirm_refund_btn: "Authorize & Execute Refund",
@@ -217,6 +225,10 @@ export const STRINGS: Record<Language, I18nDictionary> = {
     view_dossier: "साक्ष्य डोजियर देखें",
     simulate_claim: "व्हाट्सएप ग्राहक दावा सिमुलेटर",
     send_whatsapp_message: "व्हाट्सएप संदेश भेजें",
+    run_swarm: "स्वार्म चलाएँ",
+    running_swarm: "स्वार्म चल रहा है...",
+    real_payment_intake: "वास्तविक भुगतान से नया मामला",
+    send_telegram_message: "टेलीग्राम बॉट को भेजें",
     confirm_approval_title: "अपरिवर्तनीय यूपीआई रिफंड प्रमाणीकरण",
     confirm_approval_desc: "आप तत्काल और अपरिवर्तनीय यूपीआई रिफंड को अधिकृत कर रहे हैं। यह रेज़रपे एपीआई के माध्यम से आपके विक्रेता खाते से राशि डेबिट करेगा।",
     confirm_refund_btn: "स्वीकृत करें एवं रिफंड भेजें",

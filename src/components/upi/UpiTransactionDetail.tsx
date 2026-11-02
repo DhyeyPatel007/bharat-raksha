@@ -18,6 +18,38 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [copiedBadge, setCopiedBadge] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isRunningSwarm, setIsRunningSwarm] = useState(false);
+  const [swarmRunNotice, setSwarmRunNotice] = useState<string | null>(null);
+
+  const handleRunSwarm = async () => {
+    setIsRunningSwarm(true);
+    setSwarmRunNotice(null);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/upi/cases/${caseData.case_id}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Swarm execution failed");
+      if (data.case) setCaseData(data.case);
+      setSwarmRunNotice(
+        language === "hi"
+          ? `स्वार्म सफलतापूर्वक निष्पादित हुआ! नया स्कोर: ${data.case?.score}/100`
+          : `Swarm executed live! New score: ${data.case?.score}/100 (${data.case?.verdict})`
+      );
+      const logRes = await fetch(`/api/upi/cases/${caseData.case_id}`);
+      if (logRes.ok) {
+        const fresh = await logRes.json();
+        if (fresh.auditLogs) setLogs(fresh.auditLogs);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(msg);
+    } finally {
+      setIsRunningSwarm(false);
+    }
+  };
 
   const copyToClipboard = (text: string, badgeName: string) => {
     navigator.clipboard.writeText(text);
@@ -367,8 +399,31 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
           </div>
         )}
 
-        {/* BILINGUAL PDF DOSSIER DOWNLOAD BUTTON */}
-        <div style={{ marginTop: "20px", display: "flex", justifyContent: "center" }}>
+        {/* ACTIONS: RUN SWARM & BILINGUAL PDF DOSSIER DOWNLOAD */}
+        <div style={{ marginTop: "20px", display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={handleRunSwarm}
+            disabled={isRunningSwarm}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "10px 20px",
+              borderRadius: "10px",
+              backgroundColor: isRunningSwarm ? "#cbd5e1" : "#2563eb",
+              color: "#ffffff",
+              border: "none",
+              fontWeight: 700,
+              fontSize: "13px",
+              cursor: isRunningSwarm ? "not-allowed" : "pointer",
+              boxShadow: "0 2px 6px rgba(37, 99, 235, 0.2)",
+            }}
+          >
+            <span>{isRunningSwarm ? "⚙️" : "⚡"}</span>
+            <span>{isRunningSwarm ? t.running_swarm : t.run_swarm}</span>
+          </button>
+
           <a
             href={`/api/upi/cases/${caseData.case_id}/dossier.pdf`}
             target="_blank"
@@ -390,6 +445,12 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
             📄 {t.download_dossier}
           </a>
         </div>
+
+        {swarmRunNotice && (
+          <div style={{ marginTop: "12px", fontSize: "12px", fontWeight: 700, color: "#059669" }}>
+            ✓ {swarmRunNotice}
+          </div>
+        )}
       </div>
 
       {/* CONFIRMATION MODAL */}

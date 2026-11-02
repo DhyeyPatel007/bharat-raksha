@@ -11,6 +11,7 @@ import {
 import {
   extractUpiClaimData,
 } from "../src/lib/upi/whatsapp";
+import { extractTelegramClaimData } from "../src/lib/upi/telegram";
 import {
   validateRazorpayKey,
   GuardrailViolationError,
@@ -87,28 +88,44 @@ async function runAll() {
     assert.equal(res.code, "NO_REFUND_REJECTED_WITH_DOSSIER");
   });
 
-  // 4. Guardrail Hard Rule 4: < ₹500 Auto-Approval
-  test("Guardrail: < ₹500 (30,000 paise = ₹300) auto-approves without human lock", () => {
+  // 4. Guardrail Hard Rule 4: Mandatory Human Approval Before Every Refund (Default 0 Auto-Refund Ceiling)
+  test("Guardrail: ₹300 (30,000 paise) locks awaiting human approval under default 0 auto-refund ceiling", () => {
     const res = evaluateUpiGuardrail({
       paymentStatus: "captured",
       verdict: "OFFER_PARTIAL",
       recommendedRefundPaise: 30000, // ₹300
     });
-    assert.equal(res.canExecuteRefund, true);
-    assert.equal(res.requiresHumanApproval, false);
-    assert.equal(res.code, "AUTO_APPROVED_UNDER_500");
+    assert.equal(res.canExecuteRefund, false);
+    assert.equal(res.requiresHumanApproval, true);
+    assert.equal(res.code, "LOCKED_AWAITING_HUMAN_APPROVAL");
     assert.equal(res.recommendedRefundPaise, 30000);
   });
 
-  test("Guardrail: boundary test ₹499.99 (49,999 paise) auto-approves", () => {
+  test("Guardrail: boundary test ₹499.99 (49,999 paise) locks awaiting human approval under default 0 ceiling", () => {
     const res = evaluateUpiGuardrail({
       paymentStatus: "captured",
       verdict: "OFFER_PARTIAL",
       recommendedRefundPaise: 49999,
     });
+    assert.equal(res.canExecuteRefund, false);
+    assert.equal(res.requiresHumanApproval, true);
+    assert.equal(res.code, "LOCKED_AWAITING_HUMAN_APPROVAL");
+  });
+
+  test("Guardrail: ₹300 unlocks when human approval record is present", () => {
+    const res = evaluateUpiGuardrail({
+      paymentStatus: "captured",
+      verdict: "OFFER_PARTIAL",
+      recommendedRefundPaise: 30000,
+      humanApprovalRecord: {
+        approvedBy: "Ops Lead",
+        approvedAt: new Date().toISOString(),
+        token: "tok_test_case_b",
+      },
+    });
     assert.equal(res.canExecuteRefund, true);
-    assert.equal(res.requiresHumanApproval, false);
-    assert.equal(res.code, "AUTO_APPROVED_UNDER_500");
+    assert.equal(res.requiresHumanApproval, true);
+    assert.equal(res.code, "HUMAN_APPROVED_READY_TO_FIRE");
   });
 
   // 5. Guardrail Hard Rule 5: >= ₹500 Human Approval Gate
@@ -178,6 +195,37 @@ async function runAll() {
     });
     assert.equal(data.rrn, null);
     assert.equal(data.orderId, "ORD-123");
+  });
+
+  // 6b. Telegram Regex Extraction Tests
+  test("Telegram Parser: extracts 12-digit UPI RRN cleanly", () => {
+    const text = "Order ORD-KRY-8802 damaged, UPI RRN 631518440293 paid via PhonePe";
+    const data = extractTelegramClaimData({
+      text,
+      chat: { id: 9845102931 },
+    });
+    assert.equal(data.rrn, "631518440293");
+    assert.equal(data.orderId, "ORD-KRY-8802");
+  });
+
+  test("Telegram Parser: extracts Order ID cleanly", () => {
+    const text = "Hello support, I need help with ORD-ABC-9922";
+    const data = extractTelegramClaimData({
+      text,
+      chat: { id: 9811204859 },
+    });
+    assert.equal(data.orderId, "ORD-ABC-9922");
+    assert.equal(data.rrn, null);
+  });
+
+  test("Telegram Parser: ignores invalid RRNs (11 or 13 digits)", () => {
+    const text = "Invalid RRNs: 12345678901 and 1234567890123 for ORD-101";
+    const data = extractTelegramClaimData({
+      text,
+      chat: { id: 12345 },
+    });
+    assert.equal(data.rrn, null);
+    assert.equal(data.orderId, "ORD-101");
   });
 
   // 7. Razorpay Key & Security

@@ -40,9 +40,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "PHALANX / BHARAT RAKSHA — Autonomous Dispute & Claim Defense",
+  title: "BharatRaksha (भारत रक्षा) — Autonomous UPI Refund & Claim Defense Shield",
   description:
-    "Autonomous dispute defense and claim adjudication shield for PayPal chargebacks and UPI D2C merchants.",
+    "Autonomous claim adjudication and dispute defense shield for Indian UPI D2C merchants. Pure-code forensics and mandatory human approval gate.",
 };
 
 export default function RootLayout({

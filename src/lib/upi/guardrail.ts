@@ -1,5 +1,5 @@
 // PHALANX UPI — 100% Deterministic Pure-Code Guardrail Engine (Zero LLM)
-// Enforces < ₹500 auto-refund ceiling, >= ₹500 mandatory human gate lock,
+// Enforces mandatory human approval gate before every refund (AUTO_REFUND_CEILING_PAISE default 0),
 // hard-block on failed/authorized payments, and duplicate payment excess checks.
 
 import crypto from "crypto";
@@ -18,7 +18,16 @@ export interface GuardrailInput {
   } | null;
 }
 
-export const AUTO_REFUND_CEILING_PAISE = 50000; // ₹500.00 = 50,000 paise
+// Per-merchant auto-refund ceiling setting in paise (default 0 = approval always required).
+// For a small merchant even ₹500 is real money, so there is no auto-refund by default.
+// A merchant may raise it later via configuration or env var; the default must be 0.
+export let AUTO_REFUND_CEILING_PAISE = Number(
+  process.env.AUTO_REFUND_CEILING_PAISE ?? 0
+);
+
+export function setAutoRefundCeilingPaise(ceilingPaise: number): void {
+  AUTO_REFUND_CEILING_PAISE = ceilingPaise;
+}
 
 export function computeUpiIdempotencyKey(
   caseId: string,
@@ -89,9 +98,8 @@ export function evaluateUpiGuardrail(input: {
   }
 
   // Payment is CAPTURED and refund amount > 0:
-  // Check ₹500 Guardrail Boundary (50,000 paise)
-  if (recommendedRefundPaise < AUTO_REFUND_CEILING_PAISE) {
-    // HARD RULE 4: < ₹500 Auto-Refund
+  // If merchant configured an explicit auto-refund ceiling > 0 and amount is strictly within it:
+  if (AUTO_REFUND_CEILING_PAISE > 0 && recommendedRefundPaise <= AUTO_REFUND_CEILING_PAISE) {
     return {
       canExecuteRefund: true,
       blocked: false,
@@ -99,15 +107,19 @@ export function evaluateUpiGuardrail(input: {
       code: "AUTO_APPROVED_UNDER_500",
       reasonEn: `Auto-Approved: Refund amount (₹${(recommendedRefundPaise / 100).toFixed(
         2
-      )}) is strictly below the ₹500 guardrail ceiling. Executed autonomously without human lock.`,
+      )}) is within merchant auto-refund ceiling (₹${(AUTO_REFUND_CEILING_PAISE / 100).toFixed(
+        2
+      )}). Executed autonomously without human lock.`,
       reasonHi: `स्वतः स्वीकृत: रिफंड राशि (₹${(recommendedRefundPaise / 100).toFixed(
         2
-      )}) ₹500 की सुरक्षा सीमा से कम है। बिना मानवीय लॉक के स्वतः निष्पादित।`,
+      )}) मर्चेंट की ऑटो-रिफंड सीमा (₹${(AUTO_REFUND_CEILING_PAISE / 100).toFixed(
+        2
+      )}) के अंतर्गत है।`,
       recommendedRefundPaise,
     };
   }
 
-  // HARD RULE 5: >= ₹500 Mandatory Human Approval Gate
+  // MANDATORY HUMAN APPROVAL GATE (Default rule: every refund requires approval):
   if (!humanApprovalRecord) {
     return {
       canExecuteRefund: false,
@@ -116,10 +128,10 @@ export function evaluateUpiGuardrail(input: {
       code: "LOCKED_AWAITING_HUMAN_APPROVAL",
       reasonEn: `Locked: Irreversible UPI refund of ₹${(recommendedRefundPaise / 100).toFixed(
         2
-      )} meets or exceeds the ₹500 guardrail ceiling. Mandatory Human Approval Gate is LOCKED.`,
+      )} requires mandatory human approval before firing. Mandatory Human Approval Gate is LOCKED.`,
       reasonHi: `लॉक किया गया: ₹${(recommendedRefundPaise / 100).toFixed(
         2
-      )} का अपरिवर्तनीय यूपीआई रिफंड ₹500 की सुरक्षा सीमा पर या उससे अधिक है। मानवीय स्वीकृति आवश्यक है।`,
+      )} का अपरिवर्तनीय यूपीआई रिफंड मानवीय स्वीकृति की प्रतीक्षा में है। मानवीय स्वीकृति अनिवार्य है।`,
       recommendedRefundPaise,
     };
   }
@@ -135,4 +147,3 @@ export function evaluateUpiGuardrail(input: {
     recommendedRefundPaise,
   };
 }
-

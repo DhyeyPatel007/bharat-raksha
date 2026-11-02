@@ -158,6 +158,11 @@ export async function getTrackingByAwb(awb: string): Promise<ShiprocketTrackingD
   return track ? { ...track } : null;
 }
 
+export async function saveUpiOrder(order: UpiOrder): Promise<void> {
+  const store = getStore();
+  store.orders.set(order.order_id, { ...order });
+}
+
 export async function saveUpiCase(caseData: UpiCase): Promise<void> {
   const store = getStore();
   store.cases.set(caseData.case_id, { ...caseData, updated_at: new Date().toISOString() });

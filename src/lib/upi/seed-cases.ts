@@ -425,21 +425,21 @@ export function getInitialSeedCases(): UpiCase[] {
         "Received my order ORD-KRY-8802 (RRN 631518440293) paid ₹1,200 via PhonePe, but there is a scratch on the side panel. I want a full ₹1,200 refund.",
       buyer_message_hi:
         "मुझे मेरा ऑर्डर ORD-KRY-8802 (RRN 631518440293) मिला, जिसका भुगतान मैंने फ़ोनपे से ₹1,200 किया था, लेकिन इसके साइड पैनल पर खरोंच है। मुझे पूरे ₹1,200 का रिफंड चाहिए।",
-      status: "AUTO_REFUNDED",
+      status: "AWAITING_HUMAN_APPROVAL",
       verdict: "OFFER_PARTIAL",
       score: 60,
-      guardrail_state: "AUTO_APPROVED_UNDER_500",
-      requires_human_approval: false,
+      guardrail_state: "LOCKED_AWAITING_HUMAN_APPROVAL",
+      requires_human_approval: true,
       human_approved_by: null,
       human_approved_at: null,
-      razorpay_refund_id: "rfnd_auto_631518440293",
+      razorpay_refund_id: null,
       reasoning_summary: {
         en: {
           verdict: "OFFER_PARTIAL",
           reasons: [
             "Legitimate order and single captured payment verified (pay_UpiTestCaseB01, ₹1,200 via PhonePe).",
             "Customer photo inspection indicates minor cosmetic scuff on casing; primary electronic functions test 100% operational.",
-            "Customer has exemplary loyalty record (5 completed orders, 0 prior disputes). Offering 25% de-escalation partial refund (₹300) satisfies consumer amicably.",
+            "Customer has exemplary loyalty record (5 completed orders, 0 prior disputes). Offering 25% de-escalation partial refund (₹300) awaiting merchant approval.",
           ],
           namedGaps: ["SPEC_MISMATCH_NAD"],
         },
@@ -448,7 +448,7 @@ export function getInitialSeedCases(): UpiCase[] {
           reasons: [
             "वैध ऑर्डर एवं रेज़रपे पर ₹1,200 का सफल भुगतान सत्यापित (pay_UpiTestCaseB01)।",
             "ग्राहक द्वारा भेजे गए चित्र में केवल बाहरी आवरण पर मामूली खरोंच है; मुख्य उत्पाद पूरी तरह चालू स्थिति में है।",
-            "ग्राहक का पिछला रिकॉर्ड उत्कृष्ट है (५ सफल ऑर्डर, शून्य विवाद)। सद्भावना में २५% आंशिक रिफंड (₹300) स्वतः जारी किया गया।",
+            "ग्राहक का पिछला रिकॉर्ड उत्कृष्ट है (५ सफल ऑर्डर, शून्य विवाद)। सद्भावना में २५% आंशिक रिफंड (₹300) मर्चेंट स्वीकृति की प्रतीक्षा में।",
           ],
           namedGaps: ["SPEC_MISMATCH_NAD"],
         },
@@ -486,9 +486,9 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorTitleHi: "ग्राहक इतिहास एवं सुरक्षा सीमा जूरी",
           scoreContribution: 5,
           critiqueEn:
-            "Buyer Priya Patel has 0% refund ratio across 5 orders. Low risk loyal buyer. Recommended partial settlement ₹300 is under ₹500 guardrail ceiling -> triggers AUTO_APPROVED_UNDER_500.",
+            "Buyer Priya Patel has 0% refund ratio across 5 orders. Low risk loyal buyer. Recommended partial settlement ₹300 requires mandatory operator approval under default 0 auto-refund ceiling.",
           critiqueHi:
-            "प्रिया पटेल का ५ ऑर्डर में शून्य रिफंड का रिकॉर्ड है। अनुशंसित आंशिक रिफंड ₹300 सुरक्षा सीमा (₹500) से कम है, अतः स्वतः स्वीकृत।",
+            "प्रिया पटेल का ५ ऑर्डर में शून्य रिफंड का रिकॉर्ड है। अनुशंसित आंशिक रिफंड ₹300 डिफ़ॉल्ट 0 ऑटो-रिफंड सीमा के तहत मर्चेंट स्वीकृति की प्रतीक्षा में है।",
           gapsIdentified: [],
           verdictRecommendation: "OFFER_PARTIAL",
           telemetrySummary: { refund_ratio: 0.0, recommended_paise: 30000 },
@@ -502,7 +502,7 @@ export function getInitialSeedCases(): UpiCase[] {
           verdict: "OFFER_PARTIAL",
           timestamp: "2026-11-09T12:00:00Z",
           actionTaken:
-            "Evaluated cosmetic damage claim -> recommended ₹300 partial refund. Guardrail verified ₹300 < ₹500 -> Auto-executed refund.",
+            "Evaluated cosmetic damage claim -> recommended ₹300 partial refund. Guardrail locked awaiting human operator approval.",
         },
       ],
       created_at: "2026-11-09T11:45:00Z",
