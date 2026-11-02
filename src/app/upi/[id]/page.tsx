@@ -13,7 +13,7 @@ export default function UpiCaseDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [caseData, setCaseData] = useState<UpiCase | null>(null);
   const [auditLogs, setAuditLogs] = useState<UpiAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +75,7 @@ export default function UpiCaseDetailPage({
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <Link
-                href="/upi"
+                href="/"
                 style={{
                   textDecoration: "none",
                   fontSize: "18px",
@@ -107,7 +107,7 @@ export default function UpiCaseDetailPage({
 
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <Link
-              href="/dashboard"
+              href="/"
               style={{
                 fontSize: "12px",
                 fontWeight: 600,
@@ -118,7 +118,7 @@ export default function UpiCaseDetailPage({
                 backgroundColor: "#f1f5f9",
               }}
             >
-              {t.nav_paypal}
+              ← {language === "hi" ? "मुखपृष्ठ" : "Home"}
             </Link>
             <LanguageToggle />
           </div>

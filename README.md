@@ -20,6 +20,7 @@ BharatRaksha provides an autonomous, pure-code adjudication shield that investig
   - **Hard Invariant:** Deterministic checklist scoring (0-100), verdict mapping, and guardrail logic remain 100% pure-code and never changed by the LLM. The LLM articulates forensic reasoning.
   - **Airtight Output Validation:** Every LLM draft is inspected before acceptance. Any draft with hallucinated ₹ amounts, invented 12-digit RRNs, unregistered Order IDs, or length < 40 chars is rejected and falls back to deterministic templates.
   - **UI Source Badges:** Juror cards display a `✨ AI` badge with the active model name or `📋 Template` fallback.
+  - **Auto-Run on Case View:** When a judge opens any case detail view while the LLM is configured, the swarm executes once automatically to generate live AI deliberations. Cost: 1 auto-run = 3 LLM calls (1 parallel call per juror persona). Results are persisted in the case store so revisiting or refreshing consumes 0 additional tokens. The list view never auto-runs.
 - **Intake Channel:**
   - **Telegram Bot API Today:** Free, instant setup via BotFather (`/api/upi/webhooks/telegram`, `TELEGRAM_BOT_TOKEN`). Parses 12-digit UPI RRNs (`/\b(\d{12})\b/`) and Order IDs (`/\b(ORD-[A-Z0-9-]+)\b/i`), and dispatches instant status updates and refund receipts via Telegram.
   - **WhatsApp Cloud API Parked:** Parked in `src/lib/upi/whatsapp.ts` — returns when the merchant acquires an approved Meta WhatsApp Business Number.

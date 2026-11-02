@@ -42,7 +42,7 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: "BharatRaksha (भारत रक्षा) — Autonomous UPI Refund & Claim Defense Shield",
   description:
-    "Autonomous claim adjudication and dispute defense shield for Indian UPI D2C merchants. Pure-code forensics and mandatory human approval gate.",
+    "Autonomous claim adjudication and dispute defense shield for Indian UPI D2C merchants. Deterministic scoring, LLM juror reasoning, and human approval before every refund.",
 };
 
 export default function RootLayout({

@@ -7,12 +7,18 @@ import { fetchPaymentByRRN } from "./razorpay";
 import { trackAwb } from "./shiprocket";
 import {
   getCustomerByPhone,
+  getUpiCaseById,
   getUpiOrderById,
   getUpiOrderByRrn,
+  saveUpiCase,
 } from "./store-db";
+import { evaluateUpiGuardrail } from "./guardrail";
+import { allocateJurorPoints } from "./juror-math";
+export { allocateJurorPoints } from "./juror-math";
 import type {
   BilingualPracticalReasoning,
   JurorReport,
+  UpiCase,
   UpiIterationLog,
   UpiOrder,
   UpiVerdict,
@@ -481,12 +487,20 @@ Draft your concise 2-3 sentence buyer trust and guardrail audit evaluation:`;
     }
   }
 
+  // Allocate total score across the 3 jurors with largest-remainder rounding
+  // Invariant: allocatedJ1 + allocatedJ2 + allocatedJ3 === totalScore
+  const [allocatedJ1, allocatedJ2, allocatedJ3] = allocateJurorPoints(totalScore, [
+    juror1Score,
+    juror2Score,
+    juror3Score,
+  ]);
+
   const jurorReports: JurorReport[] = [
     {
       jurorId: "JUROR_GATEWAY",
       jurorTitleEn: "Gateway & Settlement Juror",
       jurorTitleHi: "गेटवे एवं बैंक निपटान जूरी",
-      scoreContribution: juror1Score,
+      scoreContribution: allocatedJ1,
       critiqueEn: juror1CritiqueEn,
       critiqueHi: juror1CritiqueHi,
       gapsIdentified: juror1Gaps,
@@ -502,7 +516,7 @@ Draft your concise 2-3 sentence buyer trust and guardrail audit evaluation:`;
       jurorId: "JUROR_FULFILLMENT",
       jurorTitleEn: "Order & Logistics Telemetry Juror",
       jurorTitleHi: "वेयरहाउस एवं शिपिंग टेलीमेट्री जूरी",
-      scoreContribution: juror2Score,
+      scoreContribution: allocatedJ2,
       critiqueEn: juror2CritiqueEn,
       critiqueHi: juror2CritiqueHi,
       gapsIdentified: juror2Gaps,
@@ -519,7 +533,7 @@ Draft your concise 2-3 sentence buyer trust and guardrail audit evaluation:`;
       jurorId: "JUROR_BUYER_RISK",
       jurorTitleEn: "Buyer History & Guardrail Juror",
       jurorTitleHi: "ग्राहक इतिहास एवं सुरक्षा सीमा जूरी",
-      scoreContribution: juror3Score,
+      scoreContribution: allocatedJ3,
       critiqueEn: juror3CritiqueEn,
       critiqueHi: juror3CritiqueHi,
       gapsIdentified: juror3Gaps,
@@ -633,4 +647,89 @@ Draft your concise 2-3 sentence buyer trust and guardrail audit evaluation:`;
     jurorReports,
     iterationLogs,
   };
+}
+
+/**
+ * Auto-run the LLM swarm when a case detail page is opened, if:
+ * 1. The LLM is configured (isLLMConfigured() === true)
+ * 2. At least one juror in the case is still template-sourced (source === "template")
+ *
+ * Persists the result to the store so subsequent visits do NOT re-run or spend more tokens.
+ * Invariant: Never auto-runs on the list page; runs only for the single case opened.
+ */
+export async function autoRunSwarmIfNeeded(
+  caseId: string
+): Promise<{ case: UpiCase; ran: boolean }> {
+  const existingCase = await getUpiCaseById(caseId);
+  if (!existingCase) {
+    throw new Error(`UPI Case ${caseId} not found`);
+  }
+
+  // If LLM is not configured, keep template text as-is
+  if (!isLLMConfigured()) {
+    return { case: existingCase, ran: false };
+  }
+
+  // Check if any juror is still template-sourced
+  const hasTemplateJurors = existingCase.juror_reports?.some(
+    (j) => j.source === "template"
+  );
+
+  if (!hasTemplateJurors) {
+    // Already has AI reasoning; do not re-run or spend more credit
+    return { case: existingCase, ran: false };
+  }
+
+  const order = await getUpiOrderByRrn(existingCase.upi_rrn);
+
+  // Run the live swarm (deliberates the 3 jurors via draft())
+  const swarmResult = await runUpiSwarm({
+    orderId: existingCase.order_id,
+    rrn: existingCase.upi_rrn,
+    claimAmountPaise: existingCase.claim_amount_paise,
+    buyerMessage: existingCase.buyer_message_en,
+  });
+
+  const guardrail = evaluateUpiGuardrail({
+    paymentStatus: order ? order.payment_status : "captured",
+    verdict: swarmResult.verdict,
+    recommendedRefundPaise: swarmResult.recommendedRefundPaise,
+    humanApprovalRecord:
+      existingCase.human_approved_by && existingCase.human_approved_at
+        ? {
+            approvedBy: existingCase.human_approved_by,
+            approvedAt: existingCase.human_approved_at,
+            token: "tok_stored_approval",
+          }
+        : null,
+  });
+
+  let status = existingCase.status;
+  if (existingCase.status !== "REFUNDED") {
+    if (guardrail.code === "AUTO_APPROVED_UNDER_500") {
+      status = "AUTO_REFUNDED";
+    } else if (guardrail.code === "LOCKED_AWAITING_HUMAN_APPROVAL") {
+      status = "AWAITING_HUMAN_APPROVAL";
+    } else if (guardrail.code === "NO_REFUND_REJECTED_WITH_DOSSIER") {
+      status = "REJECTED";
+    }
+  }
+
+  const updatedCase: UpiCase = {
+    ...existingCase,
+    score: swarmResult.score,
+    verdict: swarmResult.verdict,
+    recommended_refund_paise: swarmResult.recommendedRefundPaise,
+    guardrail_state: guardrail.code,
+    requires_human_approval: guardrail.requiresHumanApproval,
+    status,
+    reasoning_summary: swarmResult.reasoning,
+    juror_reports: swarmResult.jurorReports,
+    iteration_logs: swarmResult.iterationLogs,
+    updated_at: new Date().toISOString(),
+  };
+
+  await saveUpiCase(updatedCase);
+
+  return { case: updatedCase, ran: true };
 }

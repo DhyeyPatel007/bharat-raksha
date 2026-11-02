@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUpiCaseById, getUpiAuditLogs } from "@/lib/upi/store-db";
+import { autoRunSwarmIfNeeded } from "@/lib/upi/jurors";
+import { isLLMConfigured } from "@/lib/llm";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const caseData = await getUpiCaseById(id);
+    const shouldAutoRun = req.nextUrl.searchParams.get("autorun") !== "false";
+
+    let caseData = await getUpiCaseById(id);
 
     if (!caseData) {
       return NextResponse.json({ error: "UPI Case not found" }, { status: 404 });
+    }
+
+    let ranAutoSwarm = false;
+    if (shouldAutoRun && isLLMConfigured()) {
+      const autoRes = await autoRunSwarmIfNeeded(id);
+      caseData = autoRes.case;
+      ranAutoSwarm = autoRes.ran;
     }
 
     const auditLogs = await getUpiAuditLogs(id);
@@ -19,6 +30,8 @@ export async function GET(
       {
         case: caseData,
         auditLogs,
+        ranAutoSwarm,
+        llmConfigured: isLLMConfigured(),
       },
       { status: 200 }
     );

@@ -153,13 +153,13 @@ export async function POST(req: NextRequest) {
       // Outbound WhatsApp message reply
       let replyText = "";
       if (swarmResult.verdict === "REJECT_CLAIM") {
-        replyText = `Phalanx Shield: Your claim regarding Order ${orderId} (RRN ${rrn}) has been reviewed against bank settlement and courier weight telemetry. The claim has been rejected. Official proof dossier dispatched.`;
+        replyText = `BharatRaksha: Your claim regarding Order ${orderId} (RRN ${rrn}) has been reviewed against bank settlement and courier weight telemetry. The claim has been rejected. Official proof dossier dispatched.`;
       } else if (swarmResult.verdict === "OFFER_PARTIAL") {
-        replyText = `Phalanx Shield: We apologize for the cosmetic scratch on Order ${orderId}. A goodwill partial refund of ₹${(
+        replyText = `BharatRaksha: We apologize for the cosmetic scratch on Order ${orderId}. A goodwill partial refund of ₹${(
           swarmResult.recommendedRefundPaise / 100
-        ).toFixed(2)} has been automatically credited back to your account via UPI.`;
+        ).toFixed(2)} has been recorded awaiting operator approval.`;
       } else {
-        replyText = `Phalanx Shield: Order ${orderId} was confirmed stalled in transit. Full refund of ₹${(
+        replyText = `BharatRaksha: Order ${orderId} was confirmed stalled in transit. Full refund of ₹${(
           swarmResult.recommendedRefundPaise / 100
         ).toFixed(2)} is pending approval by merchant operator and will be settled shortly.`;
       }

@@ -113,7 +113,7 @@ export interface I18nDictionary {
 
 export const STRINGS: Record<Language, I18nDictionary> = {
   en: {
-    brand_title: "PHALANX UPI SHIELD",
+    brand_title: "BharatRaksha",
     brand_subtitle: "Autonomous Refund & Claim Adjudication for Indian D2C Merchants",
     nav_paypal: "PayPal Dispute Desk",
     nav_upi: "UPI Shield (India)",
@@ -205,7 +205,7 @@ export const STRINGS: Record<Language, I18nDictionary> = {
     upi_truth_notice: "UPI Reality: Instant clearing into merchant bank account. No escrow, no dispute hold. Defense relies on RRN matching, dispatch weight proof, and doorstep OTP verification.",
   },
   hi: {
-    brand_title: "फालांक्स यूपीआई कवच",
+    brand_title: "भारत रक्षा",
     brand_subtitle: "भारतीय डी2सी विक्रेताओं के लिए स्वायत्त रिफंड एवं दावा निर्णय प्रणाली",
     nav_paypal: "पेपैल विवाद पटल",
     nav_upi: "यूपीआई शील्ड (भारत)",

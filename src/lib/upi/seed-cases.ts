@@ -8,28 +8,29 @@ import type {
   UpiOrder,
   ShiprocketTrackingData,
 } from "./types";
+import { allocateJurorPoints } from "./juror-math";
 
 export const SEED_INVENTORY: UpiInventoryItem[] = [
   {
     sku: "SKU-AUDIO-ANC-01",
-    product_name_en: "Phalanx BassPro ANC Wireless Headphones",
-    product_name_hi: "फालांक्स बासप्रो एएनसी वायरलेस हेडफ़ोन",
+    product_name_en: "BharatRaksha BassPro ANC Wireless Headphones",
+    product_name_hi: "भारत रक्षा बासप्रो एएनसी वायरलेस हेडफ़ोन",
     unit_price_paise: 320000, // ₹3,200
     unit_weight_kg: 0.85,
     stock_count: 140,
   },
   {
     sku: "SKU-SMARTWATCH-02",
-    product_name_en: "Phalanx Apex Smartwatch (Titanium Grey)",
-    product_name_hi: "फालांक्स एपेक्स स्मार्टवॉच (टाइटेनियम ग्रे)",
+    product_name_en: "BharatRaksha Apex Smartwatch (Titanium Grey)",
+    product_name_hi: "भारत रक्षा एपेक्स स्मार्टवॉच (टाइटेनियम ग्रे)",
     unit_price_paise: 120000, // ₹1,200
     unit_weight_kg: 0.5,
     stock_count: 85,
   },
   {
     sku: "SKU-AUDIO-BAR-03",
-    product_name_en: "Phalanx SoundBar 100W Dolby Atmos",
-    product_name_hi: "फालांक्स साउंडबार 100W डॉल्बी एटमॉस",
+    product_name_en: "BharatRaksha SoundBar 100W Dolby Atmos",
+    product_name_hi: "भारत रक्षा साउंडबार 100W डॉल्बी एटमॉस",
     unit_price_paise: 249900, // ₹2,499
     unit_weight_kg: 2.1,
     stock_count: 42,
@@ -283,6 +284,10 @@ export const SEED_TRACKING: Record<string, ShiprocketTrackingData> = {
 };
 
 export function getInitialSeedCases(): UpiCase[] {
+  const [caseAPts1, caseAPts2, caseAPts3] = allocateJurorPoints(82, [35, 30, 17]);
+  const [caseBPts1, caseBPts2, caseBPts3] = allocateJurorPoints(60, [35, 30, 5]);
+  const [caseCPts1, caseCPts2, caseCPts3] = allocateJurorPoints(15, [35, 0, 0]);
+
   return [
     {
       case_id: "UPI-CASE-A",
@@ -336,7 +341,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_GATEWAY",
           jurorTitleEn: "Gateway & Settlement Juror",
           jurorTitleHi: "गेटवे एवं बैंक निपटान जूरी",
-          scoreContribution: 35,
+          scoreContribution: caseAPts1,
           critiqueEn:
             "Verified Razorpay ledger for RRN 631514892011: single captured payment of ₹3,200 (pay_UpiTestCaseA01). Second transaction pay_UpiTestCaseA02 timed out at NPCI and failed; merchant account received exactly ₹3,200 once. Zero duplicate captured funds.",
           critiqueHi:
@@ -354,7 +359,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_FULFILLMENT",
           jurorTitleEn: "Order & Logistics Telemetry Juror",
           jurorTitleHi: "वेयरहाउस एवं शिपिंग टेलीमेट्री जूरी",
-          scoreContribution: 30,
+          scoreContribution: caseAPts2,
           critiqueEn:
             "Shiprocket AWB-SR-990101 shows delivered on 2026-11-08 with doorstep OTP handshake (4921). Dispatch weight 0.85 kg matches Bhiwandi hub scan (0.85 kg) and delivery scan (0.85 kg). An empty box would weigh <0.15 kg.",
           critiqueHi:
@@ -373,7 +378,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_BUYER_RISK",
           jurorTitleEn: "Buyer History & Guardrail Juror",
           jurorTitleHi: "ग्राहक इतिहास एवं सुरक्षा सीमा जूरी",
-          scoreContribution: 17,
+          scoreContribution: caseAPts3,
           critiqueEn:
             "Buyer phone 9820199482 is classified FLAGGED (refund_ratio = 66.7%, 2 prior empty-box strikes). High risk repeat offender. Guardrail rejects refund without human override.",
           critiqueHi:
@@ -461,7 +466,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_GATEWAY",
           jurorTitleEn: "Gateway & Settlement Juror",
           jurorTitleHi: "गेटवे एवं बैंक निपटान जूरी",
-          scoreContribution: 35,
+          scoreContribution: caseBPts1,
           critiqueEn:
             "Verified Razorpay payment pay_UpiTestCaseB01 is CAPTURED for ₹1,200. Eligible for partial refund up to ₹1,200.",
           critiqueHi:
@@ -475,7 +480,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_FULFILLMENT",
           jurorTitleEn: "Order & Logistics Telemetry Juror",
           jurorTitleHi: "वेयरहाउस एवं शिपिंग टेलीमेट्री जूरी",
-          scoreContribution: 20,
+          scoreContribution: caseBPts2,
           critiqueEn:
             "Shiprocket AWB-SR-990102 confirmed delivered. Buyer uploaded photo confirming product receipt with minor surface scratch on bezel.",
           critiqueHi:
@@ -489,7 +494,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_BUYER_RISK",
           jurorTitleEn: "Buyer History & Guardrail Juror",
           jurorTitleHi: "ग्राहक इतिहास एवं सुरक्षा सीमा जूरी",
-          scoreContribution: 5,
+          scoreContribution: caseBPts3,
           critiqueEn:
             "Buyer Priya Patel has 0% refund ratio across 5 orders. Low risk loyal buyer. Recommended partial settlement ₹300 requires mandatory operator approval under default 0 auto-refund ceiling.",
           critiqueHi:
@@ -561,7 +566,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_GATEWAY",
           jurorTitleEn: "Gateway & Settlement Juror",
           jurorTitleHi: "गेटवे एवं बैंक निपटान जूरी",
-          scoreContribution: 15,
+          scoreContribution: caseCPts1,
           critiqueEn:
             "Verified Razorpay payment pay_UpiTestCaseC01 is CAPTURED for ₹2,499. Merchant holds the funds; refund is technically viable.",
           critiqueHi:
@@ -575,7 +580,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_FULFILLMENT",
           jurorTitleEn: "Order & Logistics Telemetry Juror",
           jurorTitleHi: "वेयरहाउस एवं शिपिंग टेलीमेट्री जूरी",
-          scoreContribution: 0,
+          scoreContribution: caseCPts2,
           critiqueEn:
             "Shiprocket AWB-SR-990103: zero movement for 9 days. Shadowfax status LOST_IN_TRANSIT_SUSPECTED. Delivery failure is confirmed on carrier end.",
           critiqueHi:
@@ -589,7 +594,7 @@ export function getInitialSeedCases(): UpiCase[] {
           jurorId: "JUROR_BUYER_RISK",
           jurorTitleEn: "Buyer History & Guardrail Juror",
           jurorTitleHi: "ग्राहक इतिहास एवं सुरक्षा सीमा जूरी",
-          scoreContribution: 0,
+          scoreContribution: caseCPts3,
           critiqueEn:
             "Clean customer profile (3 orders, 0 disputes). Requested full refund is ₹2,499, which is >= ₹500. Guardrail enforces LOCKED_AWAITING_HUMAN_APPROVAL.",
           critiqueHi:

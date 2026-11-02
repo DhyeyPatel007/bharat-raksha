@@ -62,7 +62,7 @@ function startPage(ctx: Ctx, headerTitle: string): { page: PDFPage; startY: numb
     color: rgb(0.96, 0.97, 0.99),
   });
 
-  page.drawText(sanitizeWinAnsi("PHALANX UPI  //  BHARAT RAKSHA  //  CONSUMER FORUM (NCH) DEFENSE DOSSIER"), {
+  page.drawText(sanitizeWinAnsi("BHARAT RAKSHA  //  CONSUMER FORUM (NCH) DEFENSE DOSSIER"), {
     x: MARGIN + 8,
     y: PAGE_H - 33,
     size: 8.5,
@@ -72,7 +72,7 @@ function startPage(ctx: Ctx, headerTitle: string): { page: PDFPage; startY: numb
 
   // Footer
   const footerText = sanitizeWinAnsi(
-    `PHALANX UPI Shield - Irreversible settlement verification. Generated: ${new Date().toISOString()}`
+    `BharatRaksha - Irreversible settlement verification. Generated: ${new Date().toISOString()}`
   );
   page.drawText(footerText, {
     x: MARGIN,
@@ -246,30 +246,10 @@ export async function generateUpiPdfDossier(caseData: UpiCase): Promise<Uint8Arr
     }
   }
 
-  y -= 8;
-
-  p1.drawText("3. NCH HINDI SUMMARY (TRANSLITERATED & VERIFIED TELEMETRY)", {
-    x: MARGIN,
-    y,
-    size: 10,
-    font: bold,
-    color: rgb(0.1, 0.15, 0.2),
-  });
   y -= 14;
 
-  const hiReasons = caseData.reasoning_summary?.hi?.reasons || [];
-  for (const r of hiReasons) {
-    const lines = wrapLines(`* [HI] ${r}`, font, 8, PAGE_W - 2 * MARGIN);
-    for (const l of lines) {
-      p1.drawText(l, { x: MARGIN + 6, y, size: 8, font, color: rgb(0.2, 0.22, 0.25) });
-      y -= 11;
-    }
-  }
-
-  y -= 10;
-
   // 10 Canonical Gaps Analyzed
-  p1.drawText("4. CANONICAL GAP BUCKET MAPPINGS", {
+  p1.drawText("3. CANONICAL GAP BUCKET MAPPINGS", {
     x: MARGIN,
     y,
     size: 10,

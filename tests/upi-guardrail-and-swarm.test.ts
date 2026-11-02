@@ -18,7 +18,13 @@ import {
   refundCapturedPayment,
 } from "../src/lib/upi/razorpay";
 import { trackAwb } from "../src/lib/upi/shiprocket";
-import { runUpiSwarm, validateJurorReply } from "../src/lib/upi/jurors";
+import {
+  runUpiSwarm,
+  validateJurorReply,
+  autoRunSwarmIfNeeded,
+  allocateJurorPoints,
+} from "../src/lib/upi/jurors";
+import { getInitialSeedCases } from "../src/lib/upi/seed-cases";
 import {
   getMerchantChatId,
   registerMerchantChat,
@@ -791,6 +797,193 @@ async function runAll() {
         (l.text.includes("UPI-CASE-A") || l.text.includes("UPI-CASE-B") || l.text.includes("UPI-CASE-C"))
     );
     assert.equal(seededAlerts.length, 0);
+  });
+
+  // 13. Juror Points Sum Invariant Tests (§1)
+  await test("Juror Points Invariant: template path - sum of juror points equals case score for all 3 cases", async () => {
+    // 1. Check seeded cases
+    const initialCases = getInitialSeedCases();
+    for (const c of initialCases) {
+      const sum = c.juror_reports.reduce((acc, j) => acc + j.scoreContribution, 0);
+      assert.equal(sum, c.score, `Seeded case ${c.case_id} juror points sum (${sum}) must equal score (${c.score})`);
+    }
+
+    // 2. Check fresh template run for Case A
+    const resA = await runUpiSwarm({
+      orderId: "ORD-KRY-8801",
+      rrn: "631514892011",
+      claimAmountPaise: 320000,
+      buyerMessage: "debited twice and empty box",
+    });
+    const sumA = resA.jurorReports.reduce((acc, j) => acc + j.scoreContribution, 0);
+    assert.equal(sumA, resA.score);
+    assert.equal(sumA, 82);
+
+    // 3. Check fresh template run for Case B
+    const resB = await runUpiSwarm({
+      orderId: "ORD-KRY-8802",
+      rrn: "631518440293",
+      claimAmountPaise: 120000,
+      buyerMessage: "scratch on side panel, want refund",
+    });
+    const sumB = resB.jurorReports.reduce((acc, j) => acc + j.scoreContribution, 0);
+    assert.equal(sumB, resB.score);
+    assert.equal(sumB, 60);
+
+    // 4. Check fresh template run for Case C
+    const resC = await runUpiSwarm({
+      orderId: "ORD-KRY-8803",
+      rrn: "631519773104",
+      claimAmountPaise: 249900,
+      buyerMessage: "stuck in transit for 9 days",
+    });
+    const sumC = resC.jurorReports.reduce((acc, j) => acc + j.scoreContribution, 0);
+    assert.equal(sumC, resC.score);
+    assert.equal(sumC, 15);
+  });
+
+  await test("Juror Points Invariant: LLM path - sum of juror points equals case score for all 3 cases with mocked draft", async () => {
+    const originalFetch = global.fetch;
+    const oldKey = process.env.LLM_API_KEY;
+    const oldProvider = process.env.LLM_PROVIDER;
+    const oldBase = process.env.LLM_BASE_URL;
+
+    process.env.LLM_API_KEY = "mock_key_sum_invariant";
+    process.env.LLM_PROVIDER = "custom";
+    process.env.LLM_BASE_URL = "https://mock.llm.nebius.test/v1";
+
+    const validDraftA =
+      "Verified 1 captured payment of ₹3,200 for RRN 631514892011. Merchant received funds once; second transaction timed out.";
+    const validDraftB =
+      "Verified 1 captured payment of ₹1,200 for RRN 631518440293. Unit delivered; minor scratch on panel.";
+    const validDraftC =
+      "Verified 1 captured payment of ₹2,499 for RRN 631519773104. Order untraceable in transit over 7 days.";
+
+    global.fetch = async (url: any, opts: any) => {
+      const body = typeof opts?.body === "string" ? opts.body : "";
+      let content = validDraftA;
+      if (body.includes("631518440293")) content = validDraftB;
+      else if (body.includes("631519773104")) content = validDraftC;
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content } }],
+        }),
+      } as any;
+    };
+
+    try {
+      const resA = await runUpiSwarm({
+        orderId: "ORD-KRY-8801",
+        rrn: "631514892011",
+        claimAmountPaise: 320000,
+        buyerMessage: "debited twice and empty box",
+      });
+      const sumA = resA.jurorReports.reduce((acc, j) => acc + j.scoreContribution, 0);
+      assert.equal(sumA, resA.score);
+      assert.equal(sumA, 82);
+      assert.equal(resA.jurorReports[0].source, "llm");
+
+      const resB = await runUpiSwarm({
+        orderId: "ORD-KRY-8802",
+        rrn: "631518440293",
+        claimAmountPaise: 120000,
+        buyerMessage: "scratch on side panel, want refund",
+      });
+      const sumB = resB.jurorReports.reduce((acc, j) => acc + j.scoreContribution, 0);
+      assert.equal(sumB, resB.score);
+      assert.equal(sumB, 60);
+
+      const resC = await runUpiSwarm({
+        orderId: "ORD-KRY-8803",
+        rrn: "631519773104",
+        claimAmountPaise: 249900,
+        buyerMessage: "stuck in transit for 9 days",
+      });
+      const sumC = resC.jurorReports.reduce((acc, j) => acc + j.scoreContribution, 0);
+      assert.equal(sumC, resC.score);
+      assert.equal(sumC, 15);
+    } finally {
+      global.fetch = originalFetch;
+      if (oldKey) process.env.LLM_API_KEY = oldKey;
+      else delete process.env.LLM_API_KEY;
+      if (oldProvider) process.env.LLM_PROVIDER = oldProvider;
+      else delete process.env.LLM_PROVIDER;
+      if (oldBase) process.env.LLM_BASE_URL = oldBase;
+      else delete process.env.LLM_BASE_URL;
+    }
+  });
+
+  // 14. Auto-Run Swarm Behavior Tests (§4)
+  await test("Auto-run behavior: does not run when LLM is unconfigured", async () => {
+    await resetDemoCases();
+    const oldKey = process.env.LLM_API_KEY;
+    delete process.env.LLM_API_KEY;
+
+    try {
+      const res = await autoRunSwarmIfNeeded("UPI-CASE-A");
+      assert.equal(res.ran, false);
+      for (const j of res.case.juror_reports) {
+        assert.equal(j.source, "template");
+      }
+    } finally {
+      if (oldKey) process.env.LLM_API_KEY = oldKey;
+    }
+  });
+
+  await test("Auto-run behavior: runs once with mocked draft and persists without re-running on revisit", async () => {
+    await resetDemoCases();
+    const originalFetch = global.fetch;
+    const oldKey = process.env.LLM_API_KEY;
+    const oldProvider = process.env.LLM_PROVIDER;
+    const oldBase = process.env.LLM_BASE_URL;
+
+    process.env.LLM_API_KEY = "mock_key_autorun";
+    process.env.LLM_PROVIDER = "custom";
+    process.env.LLM_BASE_URL = "https://mock.llm.nebius.test/v1";
+
+    const mockLlmText =
+      "Verified 1 captured payment of ₹3,200 for RRN 631514892011. Merchant received funds once; second transaction timed out.";
+
+    let fetchCount = 0;
+    global.fetch = async () => {
+      fetchCount++;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: mockLlmText } }],
+        }),
+      } as any;
+    };
+
+    try {
+      // First visit: should auto-run
+      const res1 = await autoRunSwarmIfNeeded("UPI-CASE-A");
+      assert.equal(res1.ran, true);
+      assert.equal(res1.case.juror_reports[0].source, "llm");
+      assert.ok(fetchCount >= 3, `Expected at least 3 fetch calls, got ${fetchCount}`);
+
+      const sum1 = res1.case.juror_reports.reduce((s, j) => s + j.scoreContribution, 0);
+      assert.equal(sum1, res1.case.score);
+
+      // Second visit (revisit): should NOT run again and spend zero additional tokens
+      const fetchCountBefore = fetchCount;
+      const res2 = await autoRunSwarmIfNeeded("UPI-CASE-A");
+      assert.equal(res2.ran, false);
+      assert.equal(fetchCount, fetchCountBefore, "Must not make additional LLM calls on revisit");
+      assert.equal(res2.case.juror_reports[0].source, "llm");
+    } finally {
+      global.fetch = originalFetch;
+      if (oldKey) process.env.LLM_API_KEY = oldKey;
+      else delete process.env.LLM_API_KEY;
+      if (oldProvider) process.env.LLM_PROVIDER = oldProvider;
+      else delete process.env.LLM_PROVIDER;
+      if (oldBase) process.env.LLM_BASE_URL = oldBase;
+      else delete process.env.LLM_BASE_URL;
+    }
   });
 
   console.log(`\nAll ${passed}/${total} PHALANX UPI checks passed successfully!`);

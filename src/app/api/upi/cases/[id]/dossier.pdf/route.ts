@@ -20,7 +20,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="phalanx-upi-dossier-${id}.pdf"`,
+        "Content-Disposition": `inline; filename="bharatraksha-dossier-${id}.pdf"`,
         "Content-Length": String(pdfBytes.byteLength),
       },
     });

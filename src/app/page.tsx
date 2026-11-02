@@ -330,7 +330,9 @@ export default function BharatRakshaHomePage() {
           </div>
 
           <div style={{ fontSize: "11px", color: "#64748b" }}>
-            {language === "hi" ? "१००% शुद्ध कोड फॉरेंसिक्स • शून्य एलएलएम विफलता जोखिम" : "100% Pure-Code Forensics • Zero LLM Failure Risk"}
+            {language === "hi"
+              ? "सटीक स्कोरिंग • एलएलएम जूरी विश्लेषण • प्रत्येक रिफंड से पहले मानवीय स्वीकृति"
+              : "Deterministic scoring • LLM juror reasoning • Human approval before every refund"}
           </div>
         </div>
       </div>
@@ -764,8 +766,8 @@ export default function BharatRakshaHomePage() {
             }}
           >
             {language === "hi"
-              ? "भारत रक्षा भारतीय D2C ब्रांड्स के लिए ग्राहक दावों का स्वायत्त मूल्यांकन करता है। रेज़रपे बैंक निपटान, शिपराकेट डिजिटल वजन प्रमाण पत्र, तथा अपरिवर्तनीय यूपीआई रिफंड भेजने से पहले ऑपरेटर की अनिवार्य मानवीय स्वीकृति।"
-              : "BharatRaksha turns chaotic customer complaints into verified forensic dossiers that protect Indian D2C merchants. Pure-code 3-juror audit, Razorpay settlement verification, Shiprocket weight certificates, and mandatory human operator approval before any rupee is refunded."}
+              ? "भारत रक्षा भारतीय D2C ब्रांड्स के लिए ग्राहक दावों का स्वायत्त मूल्यांकन करता है। सटीक स्कोरिंग, एलएलएम जूरी विश्लेषण, रेज़रपे बैंक निपटान, शिपराकेट डिजिटल वजन प्रमाण पत्र, तथा अपरिवर्तनीय यूपीआई रिफंड भेजने से पहले ऑपरेटर की अनिवार्य मानवीय स्वीकृति।"
+              : "BharatRaksha turns chaotic customer complaints into verified forensic dossiers that protect Indian D2C merchants. Deterministic scoring, LLM juror reasoning, Razorpay settlement verification, Shiprocket weight certificates, and mandatory human operator approval before any rupee is refunded."}
           </p>
         </section>
 
@@ -792,7 +794,7 @@ export default function BharatRakshaHomePage() {
               {t.metric_total_claims}
             </div>
             <div style={{ fontSize: "28px", fontWeight: 900, color: "#0f172a", marginTop: "4px" }}>
-              {metrics.totalClaims}
+              {loading ? <span style={{ color: "#94a3b8" }}>—</span> : metrics.totalClaims}
             </div>
           </div>
 
@@ -810,7 +812,7 @@ export default function BharatRakshaHomePage() {
               {t.metric_human_locked}
             </div>
             <div style={{ fontSize: "28px", fontWeight: 900, color: "#d97706", marginTop: "4px" }}>
-              {metrics.humanLockedCount}
+              {loading ? <span style={{ color: "#94a3b8" }}>—</span> : metrics.humanLockedCount}
             </div>
           </div>
 
@@ -828,7 +830,7 @@ export default function BharatRakshaHomePage() {
               {t.metric_fraud_prevented}
             </div>
             <div style={{ fontSize: "28px", fontWeight: 900, color: "#e11d48", marginTop: "4px" }}>
-              ₹{fraudPreventedInr}
+              {loading ? <span style={{ color: "#94a3b8" }}>—</span> : `₹${fraudPreventedInr}`}
             </div>
           </div>
 
@@ -846,7 +848,7 @@ export default function BharatRakshaHomePage() {
               {language === "hi" ? "ऑटो-रिफंड सीमा" : "Auto-Refund Ceiling"}
             </div>
             <div style={{ fontSize: "28px", fontWeight: 900, color: "#059669", marginTop: "4px" }}>
-              ₹0.00
+              {loading ? <span style={{ color: "#94a3b8" }}>—</span> : "₹0.00"}
             </div>
             <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
               {language === "hi" ? "प्रत्येक रिफंड से पहले मानवीय स्वीकृति अनिवार्य" : "Human approval required before every refund"}
