@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type {
+  AttachedEvidence,
   Dispute,
   EvidenceArtifact,
+  EvidenceType,
+  NamedGap,
   SwarmRun,
   Verdict,
 } from "@/lib/types";
@@ -13,6 +16,11 @@ import type {
 interface DetailData {
   dispute: Dispute;
   artifacts: EvidenceArtifact[];
+  attached_evidence?: AttachedEvidence[];
+  base_score?: number;
+  final_score?: number;
+  practical_reasons?: string[];
+  named_gaps?: NamedGap[];
   run: (SwarmRun & { issue_framing?: string | null; verdict_reasoning?: string | null }) | null;
   approval: {
     id: string;
@@ -26,7 +34,14 @@ interface DetailData {
 
 function cleanMarkdown(text?: string | null): string {
   if (!text) return "";
-  return text.replace(/\*\*/g, "").replace(/__/g, "");
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/_(.*?)_/g, "$1")
+    .replace(/`{1,3}(.*?)`{1,3}/g, "$1")
+    .replace(/^[ \t]*#[# \t]*/gm, "")
+    .trim();
 }
 
 function verdictBadge(v: Verdict | null) {
@@ -49,6 +64,19 @@ export default function DisputeDetailPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Attach modal state
+  const [isAttaching, setIsAttaching] = useState(false);
+  const [evidenceType, setEvidenceType] = useState<EvidenceType>("INVOICE");
+  const [referenceId, setReferenceId] = useState("");
+  const [documentDate, setDocumentDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Accordion state
+  const [showFullDebate, setShowFullDebate] = useState(false);
 
   const loadDispute = useCallback(async (disputeId: string) => {
     try {
@@ -135,23 +163,79 @@ export default function DisputeDetailPage() {
     }
   };
 
+  const handleAttachSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !id) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("evidenceType", evidenceType);
+      if (referenceId) formData.append("referenceId", referenceId);
+      if (documentDate) formData.append("documentDate", documentDate);
+      if (notes) formData.append("notes", notes);
+
+      const res = await fetch(`/api/disputes/${id}/evidence`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setUploadError(data.error || "Failed to attach evidence");
+        return;
+      }
+
+      setNotice(`Attached ${selectedFile.name} successfully (+${data.delta} pts).`);
+      setIsAttaching(false);
+      setSelectedFile(null);
+      setReferenceId("");
+      setDocumentDate("");
+      setNotes("");
+      await loadDispute(id);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveEvidence = async (evidenceId: string) => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/disputes/${id}/evidence?evidenceId=${encodeURIComponent(evidenceId)}`,
+        {
+          method: "DELETE",
+        },
+      );
+      if (res.ok) {
+        setNotice("Evidence attachment removed.");
+        await loadDispute(id);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (initialLoading) {
     return (
       <div>
-        <header className="pplx-nav">
-          <div className="pplx-nav-inner">
+        <div className="floating-nav-wrap">
+          <header className="floating-nav">
             <div className="brand-cluster">
-              <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span className="brand-mark">P</span>
                 <span>PHALANX</span>
               </Link>
-              <span className="chip teal">Dispute Inspector</span>
+              <span className="chip ultraviolet">Dispute Inspector</span>
             </div>
             <Link className="btn" href="/dashboard">
               ← All disputes
             </Link>
-          </div>
-        </header>
+          </header>
+        </div>
         <main className="detail-wrap">
           <div className="quiet-status-line">
             <span className="breathing-dot" />
@@ -165,20 +249,20 @@ export default function DisputeDetailPage() {
   if (error || !detail) {
     return (
       <div>
-        <header className="pplx-nav">
-          <div className="pplx-nav-inner">
+        <div className="floating-nav-wrap">
+          <header className="floating-nav">
             <div className="brand-cluster">
-              <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span className="brand-mark">P</span>
                 <span>PHALANX</span>
               </Link>
-              <span className="chip teal">Dispute Inspector</span>
+              <span className="chip ultraviolet">Dispute Inspector</span>
             </div>
             <Link className="btn" href="/dashboard">
               ← All disputes
             </Link>
-          </div>
-        </header>
+          </header>
+        </div>
         <main className="detail-wrap">
           <div className="callout error">
             {error || `Dispute ${id} not found.`}
@@ -192,14 +276,19 @@ export default function DisputeDetailPage() {
   }
 
   const run = detail.run;
+  const attached = detail.attached_evidence ?? [];
+  const score = run ? run.score : (detail.final_score ?? 0);
+  const baseScore = run?.base_score ?? detail.base_score ?? score;
+  const verdict = run ? run.verdict : (score >= 75 ? "CONTEST_HARD_PROOF" : score >= 35 ? "DE_ESCALATE_OFFER" : "CONCEDE_FAST_SETTLE");
+  const practicalReasons = detail.practical_reasons ?? run?.practical_reasons ?? [];
+  const namedGaps = (detail.named_gaps ?? run?.named_gaps ?? []).filter((g) => !g.resolved);
+
   const actionForVerdict =
-    run?.verdict === "CONTEST_HARD_PROOF"
+    verdict === "CONTEST_HARD_PROOF"
       ? "provide-evidence"
-      : run?.verdict === "DE_ESCALATE_OFFER"
+      : verdict === "DE_ESCALATE_OFFER"
         ? "make-offer"
-        : run?.verdict === "CONCEDE_FAST_SETTLE"
-          ? "accept-claim"
-          : null;
+        : "accept-claim";
 
   const isApproveAllowed = Boolean(
     actionForVerdict &&
@@ -215,58 +304,48 @@ export default function DisputeDetailPage() {
 
   return (
     <div>
-      {/* 12-Site Benchmark: Slim Top Bar */}
-      <header className="pplx-nav">
-        <div className="pplx-nav-inner">
+      {/* Floating Pill Nav */}
+      <div className="floating-nav-wrap">
+        <header className="floating-nav">
           <div className="brand-cluster">
-            <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span className="brand-mark">P</span>
               <span>PHALANX</span>
             </Link>
-            <span className="chip teal">PayPal Sandbox</span>
+            <span className="chip ultraviolet">PayPal Sandbox</span>
           </div>
 
-          <nav className="nav-links" aria-label="Main navigation">
-            <Link href="/" className="nav-tab">
+          <nav className="nav-links" aria-label="Workbench navigation">
+            <Link href="/" className="nav-link">
               Overview
             </Link>
-            <Link href="/dashboard" className="nav-tab active">
+            <Link href="/dashboard" className="nav-link active">
               Disputes
             </Link>
-            <Link href="/dashboard" className="nav-tab">
-              Swarm Runs
-            </Link>
-            <Link href="/dashboard" className="nav-tab">
-              Evidence Dossiers
+            <Link href="/guide" className="nav-link">
+              Guide ↗
             </Link>
           </nav>
 
-          <div className="actions">
-            <Link className="btn" href="/dashboard">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Link className="btn" href="/dashboard" style={{ fontSize: 13, padding: "6px 14px" }}>
               ← All disputes
             </Link>
             <a
               href="https://github.com/DhyeyPatel007/phalanx"
               target="_blank"
               rel="noreferrer"
-              className="nav-link-subtle"
+              className="btn"
+              style={{ fontSize: 13, padding: "6px 14px" }}
             >
               GitHub ↗
             </a>
-            <a
-              href="https://developer.paypal.com/docs/api/disputes/v1/"
-              target="_blank"
-              rel="noreferrer"
-              className="nav-link-subtle"
-            >
-              PayPal Docs ↗
-            </a>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       <main className="detail-wrap">
-        {/* Benchmark Breadcrumbs ("All disputes / PP-D-88412") + Back Link */}
+        {/* Breadcrumbs */}
         <div className="breadcrumb-bar">
           <Link href="/dashboard" className="breadcrumb-link">
             All disputes
@@ -287,33 +366,37 @@ export default function DisputeDetailPage() {
           </div>
         )}
 
-        {/* 1. Header Card: ID, Badges, Reason, Stage, Amount */}
+        {/* ========================================================
+            BLOCK 1: Practical Verdict Summary Card (Top Hero)
+            ======================================================== */}
         <div className="detail-header-card">
           <div className="detail-header-top">
             <div className="detail-title-cluster">
-              <h1>{detail.dispute.id}</h1>
+              <h1 className="font-mono">{detail.dispute.id}</h1>
               <p className="detail-meta-line">
-                {detail.dispute.reason} · ${detail.dispute.amount.value}{" "}
-                {detail.dispute.amount.currency_code} · Stage:{" "}
-                {detail.dispute.dispute_life_cycle_stage} · Status:{" "}
-                {detail.dispute.status}
+                <b>{detail.dispute.reason}</b> · ${parseFloat(detail.dispute.amount.value).toFixed(2)} USD · Stage:{" "}
+                {detail.dispute.dispute_life_cycle_stage} · Status: {detail.dispute.status}
               </p>
-              <div style={{ marginTop: 4, display: "flex", gap: 6, alignItems: "center" }}>
+              <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {detail.dispute.source === "seeded" ? (
                   <span className="badge sim">SEEDED — SIMULATED</span>
                 ) : (
                   <span className="badge na">SANDBOX</span>
                 )}
-                {run ? (
-                  verdictBadge(run.verdict)
-                ) : (
-                  <span className="badge na">NOT RUN</span>
+                {run ? verdictBadge(verdict) : <span className="badge na">NOT RUN</span>}
+                <span className="chip" style={{ fontWeight: 600 }}>
+                  Deterministic Score: {score}/100
+                </span>
+                {score > baseScore && (
+                  <span className="badge strong">
+                    Base: {baseScore} → Updated: {score} (+{score - baseScore} from attached bills)
+                  </span>
                 )}
               </div>
             </div>
 
-            {/* 2. Primary Actions: Run Swarm / Replay Webhook / Download PDF */}
-            <div className="actions">
+            {/* Actions: Run Swarm / Replay Webhook / Download PDF */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <button
                 className="primary"
                 onClick={() => runSwarm(detail.dispute.id)}
@@ -347,74 +430,348 @@ export default function DisputeDetailPage() {
             </div>
           </div>
 
-          {/* Quiet Swarm Status Line (No Progress Bar / No Stepper) */}
+          {/* Why This Verdict (2–3 Practical Reasons) */}
+          <div
+            style={{
+              marginTop: 12,
+              padding: "16px 20px",
+              background: "var(--bg-muted)",
+              borderRadius: "var(--radius-card)",
+              border: "1px solid var(--border-hairline)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 600, color: "var(--text-ink)" }}>
+              Why This Verdict (Deterministic Checklist Findings)
+            </h3>
+            {practicalReasons.length > 0 ? (
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                {practicalReasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>
+                Run the adversarial swarm to evaluate the deterministic checklist against merchant evidence.
+              </p>
+            )}
+          </div>
+
+          {/* Quiet Deliberation Status */}
           {loading && (
             <div className="quiet-status-line" role="status">
               <span className="breathing-dot" />
               <span>
-                Adversarial swarm deliberating — Hound, Prosecutor, 3-Juror Panel
-                &amp; Red-Team reviewing evidence…
+                Adversarial swarm deliberating — Hound extracting evidence, Prosecutor drafting rebuttal, 3-Juror Quorum auditing gaps…
               </span>
             </div>
           )}
         </div>
 
-        {/* 3. Prominent Human Approval Gate (Flat, Hairline Border, Teal Left Edge) */}
-        {run && (
-          <div className="approval-gate-card">
-            <div className="approval-gate-header">
-              <h3>Human Approval Gate (Mandatory)</h3>
-              <span className="chip teal">
-                Recommended: {actionForVerdict ?? "—"}
+        {/* ========================================================
+            BLOCK 2 & 3: Named Gaps (Left) + Attached Evidence Tray (Right)
+            ======================================================== */}
+        <div className="grid-2" style={{ gap: 20 }}>
+          {/* BLOCK 2: Named Gaps & Actionable Fixes */}
+          <div className="card-white" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--text-ink)" }}>
+                Named Gaps &amp; Actionable Fixes
+              </h3>
+              <span className="chip" style={{ fontSize: 12 }}>
+                {namedGaps.length} Unresolved
               </span>
             </div>
 
-            {detail.approval ? (
-              <p style={{ margin: "4px 0", fontSize: 13 }}>
+            {namedGaps.length === 0 ? (
+              <div
+                style={{
+                  padding: "16px 20px",
+                  background: "var(--verdict-contest-bg)",
+                  color: "var(--verdict-contest-text)",
+                  borderRadius: "var(--radius-card)",
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  border: "1px solid var(--verdict-contest-border)",
+                }}
+              >
+                ✓ All primary checklist requirements satisfied. No critical evidentiary gaps remaining.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {namedGaps.slice(0, 3).map((g) => (
+                  <div
+                    key={g.code}
+                    style={{
+                      padding: "12px 16px",
+                      background: "var(--bg-muted)",
+                      borderRadius: "var(--radius-card)",
+                      border: "1px solid var(--border-hairline)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 600, fontSize: 13.5, color: "var(--text-ink)" }}>
+                        {g.title}
+                      </span>
+                      <span className="badge offer" style={{ fontSize: 11 }}>
+                        +{g.scoreImpactPts} pts recoverable
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45 }}>
+                      {g.summary}
+                    </p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+                        Flagged by {g.citedBy.length}/3 Jurors ({g.rawCount} findings collapsed)
+                      </span>
+                      <span className="chip ultraviolet" style={{ fontSize: 11, cursor: "pointer" }} onClick={() => setIsAttaching(true)}>
+                        Fix: Attach {g.recommendedEvidenceType}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* BLOCK 3: Attached Bills & Evidence Tray */}
+          <div className="card-white" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--text-ink)" }}>
+                Evidence &amp; Attached Bills ({attached.length})
+              </h3>
+              <button
+                className="primary"
+                onClick={() => setIsAttaching(true)}
+                style={{ fontSize: 12.5, padding: "5px 14px" }}
+              >
+                + Attach Bill / Evidence
+              </button>
+            </div>
+
+            {attached.length === 0 ? (
+              <div
+                style={{
+                  padding: "24px 20px",
+                  background: "var(--bg-muted)",
+                  borderRadius: "var(--radius-card)",
+                  textAlign: "center",
+                  border: "1px dashed var(--border-medium)",
+                  fontSize: 13.5,
+                  color: "var(--text-secondary)",
+                }}
+              >
+                <p style={{ margin: "0 0 10px" }}>
+                  No merchant bills or courier receipts attached yet.
+                </p>
+                <button
+                  className="btn"
+                  onClick={() => setIsAttaching(true)}
+                  style={{ fontSize: 12.5 }}
+                >
+                  Attach bill / courier receipt now →
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {attached.map((att) => (
+                  <div
+                    key={att.id}
+                    style={{
+                      padding: "10px 14px",
+                      background: "var(--bg-muted)",
+                      borderRadius: "var(--radius-card)",
+                      border: "1px solid var(--border-hairline)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13, color: "var(--text-ink)" }}>
+                          {att.fileName}
+                        </span>
+                        <span className="chip font-mono" style={{ fontSize: 11 }}>
+                          {att.evidenceType}
+                        </span>
+                        <span
+                          className={`badge ${att.quality === "STRONG" ? "strong" : "weak"}`}
+                          style={{ fontSize: 11 }}
+                        >
+                          {att.quality} (+{att.scoreDelta} pts)
+                        </span>
+                      </div>
+                      <div className="font-mono" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+                        SHA-256: {att.sha256.slice(0, 12)}… · {(att.sizeBytes / 1024).toFixed(1)} KB
+                        {att.referenceId ? ` · Ref: ${att.referenceId}` : ""}
+                      </div>
+                    </div>
+                    <button
+                      className="btn"
+                      onClick={() => handleRemoveEvidence(att.id)}
+                      disabled={loading}
+                      style={{ fontSize: 11.5, padding: "4px 10px", color: "var(--verdict-concede-text)" }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Attachment Upload Modal */}
+        {isAttaching && (
+          <div className="modal-backdrop" onClick={() => !uploading && setIsAttaching(false)}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>
+                  Attach Merchant Bill / Evidence Document
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsAttaching(false)}
+                  disabled={uploading}
+                  style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18 }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {uploadError && <div className="callout error" style={{ margin: 0 }}>{uploadError}</div>}
+
+              <form onSubmit={handleAttachSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div className="form-group">
+                  <label className="form-label">Evidence Type</label>
+                  <select
+                    className="form-select"
+                    value={evidenceType}
+                    onChange={(e) => setEvidenceType(e.target.value as EvidenceType)}
+                  >
+                    <option value="INVOICE">INVOICE (Itemized bill / Order record: +15 pts)</option>
+                    <option value="CARRIER_POD">CARRIER_POD (Signed Proof-of-Delivery: +25 pts)</option>
+                    <option value="DELIVERY_PHOTO">DELIVERY_PHOTO (Visual condition proof / drop-off: +15 pts)</option>
+                    <option value="TRACKING_RECEIPT">TRACKING_RECEIPT (Courier drop-off receipt: +20 pts)</option>
+                    <option value="MERCHANT_LOG">MERCHANT_LOG (System / Fulfillment access log: +25 pts)</option>
+                    <option value="EMAIL_CONFIRMATION">EMAIL_CONFIRMATION (Buyer communications: +10 pts)</option>
+                    <option value="OTHER">OTHER (Supporting exhibit: +5 pts)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Reference ID (Invoice #, Tracking #, or Order ID)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. INV-88412 or 1Z999AA10123456784"
+                    value={referenceId}
+                    onChange={(e) => setReferenceId(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Document Date (YYYY-MM-DD)</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={documentDate}
+                    onChange={(e) => setDocumentDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">File Document (PDF, PNG, JPG, TXT, JSON, CSV - Max 5 MB)</label>
+                  <input
+                    type="file"
+                    className="form-input"
+                    accept=".pdf,.png,.jpg,.jpeg,.txt,.json,.csv"
+                    required
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsAttaching(false)}
+                    disabled={uploading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={uploading || !selectedFile}
+                  >
+                    {uploading ? "Verifying & Rescoring…" : "Upload & Rescore"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            BLOCK 5: Mandatory Human Approval Gate & Dossier Download
+            ======================================================== */}
+        {run && (
+          <div className="approval-gate-card">
+            <div className="approval-gate-header">
+              <h3>Human Approval Gate (Strictly Mandatory)</h3>
+              <span className="chip ultraviolet">
+                Recommended: {actionForVerdict}
+              </span>
+            </div>
+
+            {detail.approval && detail.approval.action !== "REQUIRES_REAPPROVAL_EVIDENCE_CHANGED" ? (
+              <p style={{ margin: "6px 0", fontSize: 13.5 }}>
                 Approved: <b>{detail.approval.action}</b>
-                {detail.approval.action === "make-offer" &&
-                  detail.approval.offer_amount && (
-                    <>
-                      {" "}
-                      — offer{" "}
-                      <b>
-                        ${detail.approval.offer_amount.value}{" "}
-                        {detail.approval.offer_amount.currency_code}
-                      </b>{" "}
-                      (REFUND, buyer keeps the item)
-                    </>
-                  )}{" "}
-                by <b>{detail.approval.approved_by ?? "demo merchant"}</b> at{" "}
+                {detail.approval.action === "make-offer" && detail.approval.offer_amount && (
+                  <>
+                    {" "}
+                    — offer{" "}
+                    <b>
+                      ${parseFloat(detail.approval.offer_amount.value).toFixed(2)} USD
+                    </b>{" "}
+                    (REFUND, buyer keeps the item)
+                  </>
+                )}{" "}
+                by <b>{detail.approval.approved_by ?? "merchant"}</b> at{" "}
                 <span className="timestamp">{detail.approval.approved_at}</span>
               </p>
             ) : (
-              <p style={{ margin: "4px 0", fontSize: 13, color: "var(--text-secondary)" }}>
-                No approval recorded yet. Nothing executes on PayPal without explicit human approval.
+              <p style={{ margin: "6px 0", fontSize: 13.5, color: "var(--text-secondary)" }}>
+                {detail.approval?.action === "REQUIRES_REAPPROVAL_EVIDENCE_CHANGED"
+                  ? "Evidence packet was updated. Re-approval is strictly required before execution."
+                  : "No approval recorded yet. No action will execute on PayPal without explicit merchant sign-off."}
               </p>
             )}
 
-            {run.verdict === "CONCEDE_FAST_SETTLE" && (
-              <p className="gaplist" style={{ marginTop: 8 }}>
-                Manual next step (not automated): file a carrier insurance claim for the lost package — PHALANX does not file claims automatically.
+            {verdict === "CONCEDE_FAST_SETTLE" && (
+              <p className="gaplist" style={{ marginTop: 10 }}>
+                Manual next step (not automated): file a carrier insurance claim for the lost package — PHALANX concedes the PayPal dispute to avoid dispute fees but does not file carrier claims automatically.
               </p>
             )}
 
             {detail.execution && (
-              <p className="gaplist" style={{ marginTop: 8 }}>
-                Last execution attempt: {detail.execution.paypal_status} — {detail.execution.note}
+              <p className="gaplist" style={{ marginTop: 10 }}>
+                Last execution attempt: <b>{detail.execution.paypal_status}</b> — {detail.execution.note}
               </p>
             )}
 
             <div className="gate-actions">
               <button
                 className="primary"
-                onClick={() =>
-                  actionForVerdict &&
-                  approve(detail.dispute.id, actionForVerdict)
-                }
+                onClick={() => approve(detail.dispute.id, actionForVerdict)}
                 disabled={!isApproveAllowed || loading}
               >
-                Approve {actionForVerdict ?? "—"}
+                Approve {actionForVerdict}
               </button>
               <button
                 className="danger"
@@ -425,214 +782,103 @@ export default function DisputeDetailPage() {
               </button>
             </div>
             <p className="footnote">
-              Execute is disabled until Approve, and until the action is live-allowed. In seeded mode Execute records a logged refusal.
+              Execute is strictly disabled until Approve is logged and the action is permitted by PayPal. In seeded mode, Execute records a logged refusal.
             </p>
           </div>
         )}
 
-        {/* 4. Judge Framing & Reasoning Callout (No Markdown **) */}
-        {run && (run.issue_framing || run.verdict_reasoning) && (
-          <div className="judge-card">
-            <h3>Judge Framing &amp; Verdict Summary (Advisory)</h3>
-            {run.issue_framing && (
-              <p style={{ margin: "0 0 8px", fontSize: 13, lineHeight: 1.5 }}>
-                <b style={{ color: "var(--text-main)" }}>Issue framing:</b> {cleanMarkdown(run.issue_framing)}
-              </p>
-            )}
-            {run.verdict_reasoning && (
-              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
-                <b style={{ color: "var(--text-main)" }}>Verdict explanation:</b> {cleanMarkdown(run.verdict_reasoning)}
-              </p>
-            )}
-            <p className="footnote">
-              The routing verdict ({run.verdict}) is strictly computed from the deterministic checklist score ({run.score}/100).
-            </p>
-          </div>
-        )}
+        {/* ========================================================
+            BLOCK 4: Collapsible Full Debate Section (Bottom Accordion)
+            ======================================================== */}
+        <div className="card-white" style={{ padding: "18px 24px" }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setShowFullDebate(!showFullDebate)}
+            style={{ width: "100%", justifyContent: "space-between", border: "none", padding: "8px 0" }}
+          >
+            <span style={{ fontWeight: 600, fontSize: 14, color: "var(--text-ink)" }}>
+              {showFullDebate ? "▾ Hide" : "▸ View"} full debate transcript (3 jurors · {namedGaps.length} named gaps · Red-Team audit)
+            </span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              {showFullDebate ? "Collapse" : "Expand"}
+            </span>
+          </button>
 
-        {/* 5. Evidence Sources */}
-        <div className="detail-section">
-          <h3>Evidence Sources ({detail.artifacts.length})</h3>
-          {detail.artifacts.length === 0 ? (
-            <p className="gaplist">No artifacts in store.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {detail.artifacts.map((a, idx) => (
-                <div
-                  key={a.id}
-                  style={{
-                    padding: "10px 14px",
-                    background: "var(--bg-canvas)",
-                    border: "1px solid var(--border-hairline)",
-                    borderRadius: "var(--radius-card)",
-                    fontSize: 13,
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 6, marginBottom: 4, alignItems: "center" }}>
-                    <span className="chip">[{idx + 1}] {a.kind}</span>
-                    {a.simulated && <span className="chip sim">SIMULATED</span>}
-                  </div>
-                  <div>{a.summary}</div>
+          {showFullDebate && (
+            <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Judge Framing */}
+              {run && (run.issue_framing || run.verdict_reasoning) && (
+                <div className="judge-card" style={{ margin: 0 }}>
+                  <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 600 }}>
+                    Judge Judicial Framing &amp; Rationale
+                  </h4>
+                  {run.issue_framing && (
+                    <p style={{ margin: "0 0 8px", fontSize: 13, lineHeight: 1.5 }}>
+                      <b>Issue Framing:</b> {cleanMarkdown(run.issue_framing)}
+                    </p>
+                  )}
+                  {run.verdict_reasoning && (
+                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
+                      <b>Verdict Reasoning:</b> {cleanMarkdown(run.verdict_reasoning)}
+                    </p>
+                  )}
                 </div>
-              ))}
+              )}
+
+              {/* Iteration Score Progression */}
+              {run && (
+                <div style={{ padding: "14px 18px", background: "var(--bg-muted)", borderRadius: "var(--radius-card)" }}>
+                  <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 600 }}>Iteration Progression</h4>
+                  {run.iterations.map((it) => (
+                    <p key={it.iteration} style={{ margin: "4px 0", fontSize: 13 }}>
+                      <span className="font-mono">{it.draft_version}:</span>{" "}
+                      <span className="tabular-nums font-mono">{it.score_before}</span> →{" "}
+                      <b className="tabular-nums font-mono">{it.score}/100</b> · {it.verdict} ·{" "}
+                      <span style={{ fontWeight: 600, color: it.accepted ? "var(--verdict-contest-text)" : "var(--verdict-offer-text)" }}>
+                        {it.accepted ? "ACCEPTED" : "REJECTED"}
+                      </span>
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Deterministic Outcome Matrix */}
+              {run?.ev_display && (
+                <div style={{ padding: "14px 18px", background: "var(--bg-muted)", borderRadius: "var(--radius-card)" }}>
+                  <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 600 }}>Deterministic Outcome Matrix</h4>
+                  <dl className="kv">
+                    <dt>Contest (if upheld)</dt>
+                    <dd>$0.00 net loss (${parseFloat(detail.dispute.amount.value).toFixed(2)} retained; $15 fee waived)</dd>
+                    <dt>Contest (if lost)</dt>
+                    <dd>
+                      -${(run.ev_display.contest_lost_cost_usd ?? run.ev_display.concede_cost).toFixed(2)} USD (${parseFloat(detail.dispute.amount.value).toFixed(2)} + ${run.ev_display.fee_usd.toFixed(2)} fee)
+                    </dd>
+                    <dt>Partial offer ({run.ev_display.offer_pct ?? 40}% refund)</dt>
+                    <dd>-${(run.ev_display.offer_cost_usd ?? run.ev_display.offer_cost).toFixed(2)} USD ($0 PayPal fee)</dd>
+                    <dt>Immediate concede</dt>
+                    <dd>-${(run.ev_display.concede_cost_usd ?? run.ev_display.concede_cost).toFixed(2)} USD</dd>
+                  </dl>
+                </div>
+              )}
+
+              {/* Full Message Log */}
+              {run?.messages && run.messages.length > 0 && (
+                <div>
+                  <h4 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 600 }}>Message Transcript</h4>
+                  {run.messages.map((m, i) => (
+                    <div key={i} className={`msg ${m.kind}`}>
+                      <div className="actor">
+                        {m.actor} · Iteration {m.iteration} · {m.kind}
+                      </div>
+                      <pre>{cleanMarkdown(m.text)}</pre>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        {run && (
-          <>
-            {/* 6. Score Progression */}
-            <div className="detail-section">
-              <h3>Checklist Score — Before / After</h3>
-              {run.iterations.map((it) => (
-                <p
-                  key={it.iteration}
-                  style={{
-                    margin: "5px 0",
-                    fontSize: 13,
-                  }}
-                >
-                  <span style={{ color: "var(--text-secondary)" }}>{it.draft_version}:</span>{" "}
-                  {it.score_before} → <b>{it.score}/100</b> · {it.verdict} ·{" "}
-                  <span style={{ fontWeight: 600, color: it.accepted ? "var(--accent-teal-ink)" : "var(--verdict-offer-text)" }}>
-                    {it.accepted ? "ACCEPTED" : "REJECTED"}
-                  </span>
-                </p>
-              ))}
-              <p className="footnote">
-                Final: <b>{run.score}/100</b> — deterministic checklist score, NEVER a win probability. Run time: {run.duration_ms} ms.
-              </p>
-            </div>
-
-            {/* 7. Named Gaps */}
-            <div className="detail-section">
-              <h3>Named Gaps</h3>
-              {run.gaps.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>
-                  No gaps — every checklist item has an artifact.
-                </p>
-              ) : (
-                <ul className="gaplist">
-                  {run.gaps.map((g) => (
-                    <li key={g} style={{ margin: "4px 0" }}>{g}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* 8. Honest Deterministic Outcome & Break-Even Matrix */}
-            {run.ev_display && (
-              <div className="detail-section">
-                <h3>
-                  Deterministic Outcome &amp; Break-Even Matrix — Not a PayPal Outcome Prediction
-                </h3>
-                <dl className="kv">
-                  <dt>Contest (if upheld)</dt>
-                  <dd>
-                    $0.00 net loss (${detail.dispute.amount.value} retained; $15 fee waived)
-                  </dd>
-                  <dt>Contest (if lost)</dt>
-                  <dd>
-                    -$
-                    {(
-                      run.ev_display.contest_lost_cost_usd ??
-                      run.ev_display.concede_cost
-                    ).toFixed(2)}{" "}
-                    (${detail.dispute.amount.value} claim + $
-                    {run.ev_display.fee_usd} fee)
-                  </dd>
-                  <dt>
-                    Partial offer ({run.ev_display.offer_pct ?? 40}% refund)
-                  </dt>
-                  <dd>
-                    -$
-                    {(
-                      run.ev_display.offer_cost_usd ??
-                      run.ev_display.offer_cost
-                    ).toFixed(2)}{" "}
-                    settled in INQUIRY ($0 PayPal fee)
-                  </dd>
-                  <dt>Immediate concede</dt>
-                  <dd>
-                    -$
-                    {(
-                      run.ev_display.concede_cost_usd ??
-                      run.ev_display.concede_cost
-                    ).toFixed(2)}
-                  </dd>
-                  {typeof run.ev_display.breakeven_win_rate_vs_offer_pct ===
-                    "number" && (
-                    <>
-                      <dt>Break-even vs. offer</dt>
-                      <dd>
-                        Contesting beats a $
-                        {(
-                          run.ev_display.offer_cost_usd ??
-                          run.ev_display.offer_cost
-                        ).toFixed(2)}{" "}
-                        offer only if true external win odds exceed{" "}
-                        {run.ev_display.breakeven_win_rate_vs_offer_pct}% (not estimated by PHALANX)
-                      </dd>
-                    </>
-                  )}
-                  <dt>Fee basis</dt>
-                  <dd>{run.ev_display.fee_basis}</dd>
-                </dl>
-              </div>
-            )}
-
-            {/* 9. Adversarial Debate Transcript */}
-            <div className="detail-section">
-              <h3>Adversarial Debate Transcript</h3>
-              {run.messages.map((m, i) => (
-                <div key={i} className={`msg ${m.kind}`}>
-                  <div className="actor">
-                    {m.actor} · iter {m.iteration} · {m.kind}
-                  </div>
-                  <pre>{cleanMarkdown(m.text)}</pre>
-                </div>
-              ))}
-            </div>
-
-            {/* 10. Evidence Dossier & Allowed Actions */}
-            <div className="detail-section">
-              <h3>Evidence Dossier (PDF) &amp; Allowed Actions</h3>
-              <p style={{ margin: "0 0 10px" }}>
-                <a
-                  className="pdf-link"
-                  href={`/api/disputes/${detail.dispute.id}/evidence.pdf`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Download evidence dossier (PDF) ↗
-                </a>{" "}
-                <span className="footnote">
-                  — preview before approval; SIMULATED watermark on seeded disputes.
-                </span>
-              </p>
-              <details>
-                <summary style={{ cursor: "pointer", fontSize: 13, color: "var(--text-secondary)" }}>
-                  PayPal says I can… (allowed actions)
-                </summary>
-                <pre
-                  style={{
-                    fontSize: 12,
-                    background: "var(--bg-canvas)",
-                    padding: 12,
-                    borderRadius: "var(--radius-card)",
-                    marginTop: 8,
-                    border: "1px solid var(--border-hairline)",
-                  }}
-                >
-                  {JSON.stringify(detail.dispute.allowed_actions, null, 2)}
-                  {detail.dispute.source === "seeded"
-                    ? "\n(SIMULATED list for seeded disputes — live gating applies to Sandbox rows.)"
-                    : ""}
-                </pre>
-              </details>
-            </div>
-          </>
-        )}
       </main>
     </div>
   );

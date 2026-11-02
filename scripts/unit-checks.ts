@@ -18,6 +18,23 @@ import {
 } from "../src/lib/swarm";
 import { getDispute, getSwarmProgress, loadSeed } from "../src/lib/store";
 import type { Dispute, EvidenceArtifact, SwarmRun } from "../src/lib/types";
+import {
+  CANONICAL_GAPS,
+  classifyGapCode,
+  deduplicateGaps,
+  buildPracticalReasons,
+} from "../src/lib/practical-reasoning";
+import {
+  classifyEvidenceQuality,
+  computeSha256,
+  computeAttachedEvidenceDelta,
+} from "../src/lib/evidence-scorer";
+import {
+  addAttachedEvidence,
+  clearAttachedEvidence,
+} from "../src/lib/store";
+import type { AttachedEvidence, ChecklistItem } from "../src/lib/types";
+
 
 let failures = 0;
 let count = 0;
@@ -424,11 +441,131 @@ async function swarmAndTrackerChecks(): Promise<void> {
   check("Tagged jury output contains [ADVISORY 1/3]", true, tagged.combinedGaps.some((g) => g.startsWith("[ADVISORY 1/3]")));
 }
 
+
+// ---- Practical Reasoning & Evidence Attachment Checks ----
+async function practicalReasoningAndEvidenceChecks(): Promise<void> {
+  // 1. Canonical Gap Classification (10 buckets)
+  check("classifyGapCode MISSING_TRACKING", "MISSING_TRACKING", classifyGapCode("Tracking number is missing carrier name"));
+  check("classifyGapCode MISSING_DELIVERY_PROOF", "MISSING_DELIVERY_PROOF", classifyGapCode("Delivery status is pending and not marked delivered"));
+  check("classifyGapCode MISSING_SIGNATURE_HIGH_VALUE", "MISSING_SIGNATURE_HIGH_VALUE", classifyGapCode("Signature confirmation absent from courier proof"));
+  check("classifyGapCode ADDRESS_MISMATCH", "ADDRESS_MISMATCH", classifyGapCode("Shipping address ZIP mismatch with PayPal buyer transaction address"));
+  check("classifyGapCode CARRIER_MISMATCH_DIGITAL", "CARRIER_MISMATCH_DIGITAL", classifyGapCode("Digital intangible item shipped via FedEx postal carrier"));
+  check("classifyGapCode MISSING_MERCHANT_LOG", "MISSING_MERCHANT_LOG", classifyGapCode("Merchant download access logs missing"));
+  check("classifyGapCode MISSING_TIMESTAMP_ALIGNMENT", "MISSING_TIMESTAMP_ALIGNMENT", classifyGapCode("Access timestamp predates checkout transaction"));
+  check("classifyGapCode MISSING_INVOICE_ITEMIZATION", "MISSING_INVOICE_ITEMIZATION", classifyGapCode("Itemized billing breakdown missing from invoice"));
+  check("classifyGapCode SPEC_MISMATCH_NAD", "SPEC_MISMATCH_NAD", classifyGapCode("Item color does not match description on listing"));
+  check("classifyGapCode OTHER_GAP", "OTHER_GAP", classifyGapCode("Unstructured merchant note or general gap"));
+
+  // 2. Deduplication of ~70 noisy juror gaps
+  const noisy70 = [
+    ...Array(25).fill("Tracking number missing from carrier receipt"),
+    ...Array(20).fill("No signature confirmation on delivery"),
+    ...Array(15).fill("Merchant download access logs missing"),
+    ...Array(10).fill("Buyer claims item received is completely different color"),
+  ];
+  const deduped = deduplicateGaps(noisy70, [], []);
+  check("deduplicateGaps collapses noisy gaps to <= 4 canonical buckets", true, deduped.length <= 4);
+  check("deduplicateGaps ranks highest impact first", "MISSING_TRACKING", deduped[0]?.code);
+  check("deduplicateGaps tracks citation counts", 25, deduped.find((g) => g.code === "MISSING_TRACKING")?.rawCount);
+
+  // 3. Practical reasons generation (2-3 bullets)
+  const mockPassedChecklist: ChecklistItem[] = [
+    { key: "tracking_valid_format", label: "Valid carrier tracking number", passed: true, points: 15 },
+    { key: "tracking_delivered", label: "Tracking shows DELIVERED status", passed: true, points: 30 },
+    { key: "delivery_verifiable", label: "Online carrier verification available", passed: true, points: 15 },
+    { key: "merchant_log_post_delivery_use", label: "Merchant log shows post-delivery access", passed: true, points: 25 },
+  ];
+  const reasons = buildPracticalReasons(mockPassedChecklist, "CONTEST_HARD_PROOF", 85);
+  check("buildPracticalReasons returns 2-3 bullets", true, reasons.length >= 2 && reasons.length <= 3);
+  check("buildPracticalReasons highlights delivery proof", true, reasons.some((r) => r.toLowerCase().includes("delivered") || r.toLowerCase().includes("tracking")));
+
+  // 4. Evidence Quality Classifier
+  const strongText = Buffer.from("INVOICE #INV-9999\nDATE: 2026-10-15\nAMOUNT: $480.00 USD\nPAID VIA PAYPAL\nSTATUS: COMPLETED");
+  const qStrong = classifyEvidenceQuality("INVOICE", "invoice.txt", "text/plain", strongText);
+  check("classifyEvidenceQuality returns STRONG with verifiable anchors", "STRONG", qStrong.quality);
+  check("classifyEvidenceQuality awards full points (15) for STRONG invoice", 15, qStrong.scoreDelta);
+
+  const weakText = Buffer.from("hello world just a short note");
+  const qWeak = classifyEvidenceQuality("INVOICE", "note.txt", "text/plain", weakText);
+  check("classifyEvidenceQuality returns WEAK without anchors", "WEAK", qWeak.quality);
+  check("classifyEvidenceQuality awards partial points (6) for WEAK invoice", 6, qWeak.scoreDelta);
+
+  const qInvalid = classifyEvidenceQuality("INVOICE", "empty.txt", "text/plain", Buffer.from(""));
+  check("classifyEvidenceQuality returns INVALID for empty file", "INVALID", qInvalid.quality);
+
+  // 5. SHA-256 and Delta Computation
+  const hash = computeSha256(Buffer.from("phalanx-test-string"));
+  check("computeSha256 returns 64-char hex", 64, hash.length);
+
+  const dDelta0 = computeAttachedEvidenceDelta([], mockPassedChecklist, dispute({ id: "TEST" }), 60);
+  check("computeAttachedEvidenceDelta with 0 attached returns delta 0", 0, dDelta0.delta);
+  check("computeAttachedEvidenceDelta preserves base score", 60, dDelta0.finalScore);
+
+  // 6. End-to-end Swarm with Evidence Attachment on Case B (PP-D-88413)
+  clearAttachedEvidence("PP-D-88413");
+  const dispB = getDispute("PP-D-88413")!;
+  const runBBase = await runSwarm(dispB);
+  check("Dispute B baseline score is 60", 60, runBBase.score);
+  check("Dispute B baseline verdict is DE_ESCALATE_OFFER", "DE_ESCALATE_OFFER", runBBase.verdict);
+
+  // Now attach a STRONG Delivery Photo / POD evidence (+15)
+  addAttachedEvidence("PP-D-88413", {
+    id: "att-test-1",
+    disputeId: "PP-D-88413",
+    evidenceType: "DELIVERY_PHOTO",
+    fileName: "delivery_photo.png",
+    sizeBytes: 1024,
+    mimeType: "image/png",
+    base64Data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    sha256: "dummy-sha256",
+    quality: "STRONG",
+    scoreDelta: 15,
+    createdAt: new Date().toISOString(),
+  });
+
+  const runBBoosted = await runSwarm(dispB);
+  check("Dispute B boosted score reaches 75 (60 + 15)", 75, runBBoosted.score);
+  check("Dispute B boosted verdict flips to CONTEST_HARD_PROOF", "CONTEST_HARD_PROOF", runBBoosted.verdict);
+  check("Dispute B recorded attached evidence", 1, runBBoosted.attached_evidence?.length ?? 0);
+
+  // Clean up Case B so seeded baseline is clean
+  clearAttachedEvidence("PP-D-88413");
+
+  // 7. PDF Generation with Attached Evidence (Exhibit Page)
+  const disp = dispute({ id: "PP-D-TEST-PDF" });
+  const testArts = [
+    artifact("t1", "tracking", "FEDEX 123456, DELIVERED"),
+    artifact("i1", "invoice", "Invoice INV-TEST-1"),
+  ];
+  const dummyAttached: AttachedEvidence = {
+    id: "att-pdf-1",
+    disputeId: "PP-D-TEST-PDF",
+    evidenceType: "CARRIER_POD",
+    fileName: "carrier_pod.txt",
+    sizeBytes: 100,
+    mimeType: "text/plain",
+    base64Data: Buffer.from("CARRIER PROOF OF DELIVERY\nTracking: FEDEX 123456\nSigned: J. DOE\nStatus: DELIVERED").toString("base64"),
+    sha256: "a1b2c3d4e5f67890",
+    quality: "STRONG",
+    scoreDelta: 25,
+    createdAt: new Date().toISOString(),
+  };
+
+  const pdfBytesWithAttached = await buildEvidencePdf(disp, testArts, null, [dummyAttached]);
+  const loadedWithAttached = await PDFDocument.load(pdfBytesWithAttached);
+  check("PDF with 1 attached text exhibit has 6 pages (5 baseline + 1 exhibit)", 6, loadedWithAttached.getPageCount());
+
+  const pdfBytesWithoutAttached = await buildEvidencePdf(disp, testArts, null, []);
+  const loadedWithoutAttached = await PDFDocument.load(pdfBytesWithoutAttached);
+  check("PDF with 0 attached files maintains exactly 5 pages", 5, loadedWithoutAttached.getPageCount());
+}
+
 async function main(): Promise<void> {
   await pdfChecks();
   await draftNoKeyChecks();
   await prosecutorFallbackChecks();
   await swarmAndTrackerChecks();
+  await practicalReasoningAndEvidenceChecks();
   console.log(`\n${count - failures}/${count} unit checks passed.`);
   process.exit(failures > 0 ? 1 : 0);
 }

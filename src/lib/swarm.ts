@@ -10,7 +10,7 @@
 // - Falls back to rebuttalFromTemplate, single deterministic Red-Team check, and score breakdown.
 // Max 3 adversarial iterations — never loops forever, never silently passes.
 
-import { createPhaseTracker, getArtifacts } from "./store";
+import { createPhaseTracker, getArtifacts, getAttachedEvidence } from "./store";
 import {
   actionForVerdict,
   evDisplay,
@@ -18,10 +18,14 @@ import {
   verdictForScore,
 } from "./scorer";
 import { draft, isLLMConfigured } from "./llm";
+import { computeAttachedEvidenceDelta } from "./evidence-scorer";
+import { buildPracticalReasons, deduplicateGaps } from "./practical-reasoning";
 import type {
+  AttachedEvidence,
   DebateMessage,
   Dispute,
   EvidenceArtifact,
+  NamedGap,
   SwarmIteration,
   SwarmRun,
   Verdict,
@@ -37,10 +41,18 @@ export function rebuttalFromTemplate(
   dispute: Dispute,
   artifacts: EvidenceArtifact[],
   version: string,
+  attached?: AttachedEvidence[],
 ): string {
   const lines = artifacts.map(
     (a) => `- [${a.kind}] ${a.summary}${a.simulated ? " (SIMULATED)" : ""}`,
   );
+  if (attached && attached.length > 0) {
+    for (const att of attached) {
+      lines.push(
+        `- [attached_evidence: ${att.evidenceType}] ${att.fileName} (SHA-256: ${att.sha256.slice(0, 10)}) - ${att.quality} (+${att.scoreDelta} pts)`,
+      );
+    }
+  }
   return [
     `Rebuttal ${version} — Dispute ${dispute.id} (${dispute.reason}, $${dispute.amount.value} ${dispute.amount.currency_code}).`,
     `Merchant position: the claim is disputed on the evidence below. No fact is asserted that is not in an artifact.`,
@@ -472,9 +484,11 @@ export async function runSwarm(dispute: Dispute): Promise<SwarmRun> {
 
   let best: SwarmIteration | null = null;
   let llmDegraded = !isLLMConfigured();
+  const allRecordedGaps: string[] = [];
 
   for (let i = 1; i <= MAX_ITERATIONS; i++) {
     const { score, gaps: deterministicGaps } = scoreDispute(dispute, available);
+    allRecordedGaps.push(...deterministicGaps);
     const verdict = verdictForScore(score);
     const preferredAction = actionForVerdict(verdict);
     const scoreBefore = best ? best.score : 0;
@@ -519,6 +533,7 @@ export async function runSwarm(dispute: Dispute): Promise<SwarmRun> {
       for (const g of jury.policyGaps) msg(i, "Juror (Policy)", "gap", `Policy gap: ${g}`);
       for (const g of jury.buyerGaps) msg(i, "Juror (Buyer-Sympathy)", "gap", `Buyer counter: ${g}`);
       activeGaps = aggregateJuryGaps(deterministicGaps, jury.combinedGaps);
+      allRecordedGaps.push(...jury.combinedGaps);
     }
 
     // Red-Team / Gap triage against the rubric
@@ -637,11 +652,40 @@ export async function runSwarm(dispute: Dispute): Promise<SwarmRun> {
     break;
   }
 
-  const finalScore = best ? best.score : 0;
-  const finalVerdict = best ? best.verdict : verdictForScore(finalScore);
-  const finalGaps = best ? best.gaps : [];
+  const baseScore = best ? best.score : 0;
+  const baseVerdict = best ? best.verdict : verdictForScore(baseScore);
+  const baseGaps = best ? best.gaps : [];
+
+  // Check for attached evidence
+  const attached = getAttachedEvidence(dispute.id);
+  const lastChecklist = scoreDispute(dispute, available);
+  const deltaCalc = computeAttachedEvidenceDelta(
+    attached,
+    lastChecklist.items,
+    dispute,
+    baseScore,
+  );
+
+  const finalScore = deltaCalc.finalScore;
+  const finalVerdict = deltaCalc.verdict;
+  const finalGaps = baseGaps;
   const amount = parseFloat(dispute.amount.value);
   const finalAction = actionForVerdict(finalVerdict);
+
+  // Practical reasoning & canonical deduplication
+  const deduplicatedNamedGaps = deduplicateGaps(
+    allRecordedGaps.length > 0 ? allRecordedGaps : finalGaps,
+    lastChecklist.items,
+    attached,
+    dispute,
+  );
+  const practicalReasons = buildPracticalReasons(
+    lastChecklist.items,
+    finalVerdict,
+    finalScore,
+    attached,
+    dispute,
+  );
 
   // Judge framing phase
   tracker.startPhase("judge_framing", "Judge framing issue & verdict rationale", "Judge", 0);
@@ -676,7 +720,11 @@ export async function runSwarm(dispute: Dispute): Promise<SwarmRun> {
     iterations,
     messages,
     score: finalScore,
+    base_score: baseScore,
     gaps: finalGaps,
+    named_gaps: deduplicatedNamedGaps,
+    practical_reasons: practicalReasons,
+    attached_evidence: attached,
     verdict: finalVerdict,
     ev_display: evDisplay(finalScore, amount, undefined, dispute),
     status: "AWAITING_APPROVAL",

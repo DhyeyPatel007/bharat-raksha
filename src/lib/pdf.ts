@@ -1,12 +1,10 @@
 // Evidence dossier PDF — brief §6, generated server-side with pdf-lib.
-// Pages: (1) cover, (2) invoice/order record, (3) tracking/fulfillment
+// Pages: (1) Executive Result Summary, (2) invoice/order record, (3) tracking/fulfillment
 // proof, (4) merchant-log correlation table, (5) evidence manifest.
+// Subsequent pages (6..N): Dedicated Exhibit pages for merchant-attached bills/evidence.
 // Seeded disputes carry a SIMULATED watermark on every page.
 // The PDF is an ATTACHMENT to the provide-evidence call; the structured
-// evidences[] JSON is the primary payload — never "just a PDF and hope".
-// No raw IPs anywhere in the PDF. Scores are checklist scores, never a
-// win probability. Size is far under the PayPal limits (50 MB total,
-// 10 MB per file).
+// evidences[] JSON is the primary payload.
 
 import { createHash } from "crypto";
 import {
@@ -18,7 +16,15 @@ import {
   type PDFFont,
 } from "pdf-lib";
 import { scoreDispute } from "./scorer";
-import type { Dispute, EvidenceArtifact, SwarmRun } from "./types";
+import { buildPracticalReasons, deduplicateGaps } from "./practical-reasoning";
+import { computeAttachedEvidenceDelta } from "./evidence-scorer";
+import { getAttachedEvidence } from "./store";
+import type {
+  AttachedEvidence,
+  Dispute,
+  EvidenceArtifact,
+  SwarmRun,
+} from "./types";
 
 const PAGE_W = 595.28; // A4
 const PAGE_H = 841.89;
@@ -30,10 +36,8 @@ export const PDF_SIZE_LIMIT_BYTES = 10 * 1024 * 1024; // 10 MB per file (Phase 0
 
 /**
  * pdf-lib's StandardFonts.Helvetica is WinAnsi-encoded (latin-1 subset):
- * any character outside it (→, smart quotes, ₹, …) makes
- * widthOfTextAtSize / drawText throw and the PDF route 500. Sanitize
- * before measuring so live PayPal / merchant text can never crash the
- * dossier. Characters with no WinAnsi equivalent become "?".
+ * any character outside it makes widthOfTextAtSize / drawText throw.
+ * Sanitize before measuring so text can never crash the dossier.
  */
 function sanitizeWinAnsi(input: string): string {
   return input
@@ -68,6 +72,7 @@ interface Ctx {
   doc: PDFDocument;
   font: PDFFont;
   bold: PDFFont;
+  mono: PDFFont;
   simulated: boolean;
   pageNo: number;
 }
@@ -164,15 +169,6 @@ function drawWrapped(
   return cy;
 }
 
-/**
- * Paginating variant of drawWrapped for unbounded text (finding #9):
- * wraps first, then draws line by line, starting a continuation page
- * whenever the cursor would run into the footer (y < 60). Used for the
- * merchant-log source record and anywhere a live record of unknown
- * length is drawn. Pages 1–3 draw only bounded content (fixed strings +
- * short dispute fields, worst case ~480pt from a 745pt start) and need
- * no continuation.
- */
 function drawWrappedPaged(
   ctx: Ctx,
   page: PDFPage,
@@ -218,12 +214,6 @@ function drawKv(
   return cy;
 }
 
-/** Evidence types this dossier would send with provide-evidence.
- *  The live dispute detail is the authority: only types PayPal requested
- *  (evidences[] with source REQUESTED_FROM_SELLER) are sent (Phase 0
- *  row 2/3). The reason-based list below is ONLY the fallback for seeded
- *  rows, whose raw_paypal_detail is null. ingest.ts already stores the
- *  full live detail in raw_paypal_detail for Sandbox disputes. */
 export function evidenceTypesFor(dispute: Dispute, action: string): string[] {
   if (action !== "provide-evidence") return [];
   const rawEvidences = (
@@ -248,15 +238,6 @@ export function sha256Hex(input: string): string {
   return createHash("sha256").update(input, "utf-8").digest("hex");
 }
 
-/**
- * Which artifacts a dossier may show (finding #9). Before the swarm has
- * run (run === null), only Hound pass-1 sources — tracking + invoice —
- * exist yet: the merchant log is fetched only after a Red-Team rejection
- * (swarm.ts mirrors this filter). Showing all artifacts pre-swarm would
- * print the merchant log and score 85 for A, contradicting the swarm's
- * own pass-1 story (60, tracking+invoice only). After a run, all
- * artifacts the swarm actually used are shown.
- */
 export function artifactsForPdf(
   artifacts: EvidenceArtifact[],
   run: SwarmRun | null,
@@ -269,19 +250,27 @@ export async function buildEvidencePdf(
   dispute: Dispute,
   artifacts: EvidenceArtifact[],
   run: SwarmRun | null,
+  attachedEvidence?: AttachedEvidence[],
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const mono = await doc.embedFont(StandardFonts.Courier);
   const simulated = dispute.source === "seeded";
-  const ctx: Ctx = { doc, font, bold, simulated, pageNo: 0 };
+  const ctx: Ctx = { doc, font, bold, mono, simulated, pageNo: 0 };
   const maxW = PAGE_W - MARGIN * 2;
 
-  // Pre-swarm preview: score/print only pass-1 artifacts (finding #9).
+  // Pre-swarm preview: score/print only pass-1 artifacts
   const visibleArtifacts = artifactsForPdf(artifacts, run);
-  const { score, items } = scoreDispute(dispute, visibleArtifacts);
-  const finalScore = run ? run.score : score;
-  const verdict = run ? run.verdict : finalScore >= 75 ? "CONTEST_HARD_PROOF" : finalScore >= 35 ? "DE_ESCALATE_OFFER" : "CONCEDE_FAST_SETTLE";
+  const { score: baseCheckScore, items: baseItems, gaps: baseGaps } = scoreDispute(dispute, visibleArtifacts);
+
+  // Attached evidence scoring
+  const attached = attachedEvidence ?? getAttachedEvidence(dispute.id);
+  const baseScore = run ? run.score : baseCheckScore;
+  const deltaCalc = computeAttachedEvidenceDelta(attached, baseItems, dispute, baseScore);
+  const finalScore = deltaCalc.finalScore;
+  const verdict = deltaCalc.verdict;
+
   const action =
     verdict === "CONTEST_HARD_PROOF"
       ? "provide-evidence"
@@ -291,14 +280,29 @@ export async function buildEvidencePdf(
   const evidenceTypes = evidenceTypesFor(dispute, action);
   const generatedAt = new Date().toISOString();
 
+  // Practical reasoning and named gaps
+  const practicalReasons =
+    run?.practical_reasons ??
+    buildPracticalReasons(baseItems, verdict, finalScore, attached, dispute);
+  const namedGaps =
+    run?.named_gaps ??
+    deduplicateGaps(run ? run.gaps : baseGaps, baseItems, attached, dispute);
+
   const tracking = visibleArtifacts.find((a) => a.kind === "tracking");
   const invoice = visibleArtifacts.find((a) => a.kind === "invoice");
   const merchantLog = visibleArtifacts.find((a) => a.kind === "merchant_log");
 
-  // ---- Page 1: cover ----
+  // ---- Page 1: One-Page Executive Result Summary ----
   {
-    const { page, y } = newPage(ctx, "Evidence dossier — cover");
+    const { page, y } = newPage(ctx, "Evidence dossier — Executive Summary");
     let cy = y;
+
+    // Score string
+    const scoreStr =
+      deltaCalc.delta > 0
+        ? `${finalScore}/100 (Base: ${baseScore} + ${deltaCalc.delta} from attached bills)`
+        : `${finalScore}/100 — checklist score, not a win probability`;
+
     cy = drawKv(
       page,
       [
@@ -306,11 +310,11 @@ export async function buildEvidencePdf(
         ["Reason", dispute.reason],
         ["Amount", `$${dispute.amount.value} ${dispute.amount.currency_code}`],
         ["Lifecycle stage", `${dispute.dispute_life_cycle_stage} / ${dispute.status}`],
-        ["Checklist score", `${finalScore}/100 — checklist score, not a win probability`],
-        ["Verdict (routing policy)", verdict],
+        ["Checklist score", scoreStr],
+        ["Verdict route", verdict],
         ["Recommended action", action],
-        ["Generated", generatedAt],
-        ["Source", simulated ? "Seeded — SIMULATED demo data (no real buyer, no real transaction)" : "PayPal Sandbox"],
+        ["Generated at", generatedAt],
+        ["Environment", simulated ? "Seeded — SIMULATED demo data" : "PayPal Sandbox"],
       ],
       MARGIN,
       cy,
@@ -318,43 +322,78 @@ export async function buildEvidencePdf(
       bold,
       maxW,
     );
-    cy -= 10;
-    cy = drawWrapped(
-      page,
-      "How to read this dossier: the score is a deterministic checklist score (tracking DELIVERED 30 + delivery verifiable 15 + signature 15 + merchant log 25 + invoice/terms 15). It is an internal heuristic. PHALANX does not know, and does not claim, how PayPal or a card issuer will decide this case.",
-      MARGIN,
-      cy,
-      font,
-      BODY,
-      maxW,
-    );
-    cy -= 8;
-    if (run === null) {
+    cy -= 6;
+
+    // Pre-swarm preview label — honesty label, must survive reworks.
+    // A pre-swarm PDF must never be mistaken for a completed dossier.
+    if (!run) {
       cy = drawWrapped(
         page,
         "PRE-SWARM PREVIEW — the swarm has not run yet. This dossier shows only Hound pass-1 sources (tracking + invoice). The merchant log and other slow sources are not included, and the score below reflects partial evidence only.",
         MARGIN,
         cy,
         bold,
-        BODY,
+        SMALL,
         maxW,
         rgb(0.6, 0.1, 0.1),
       );
-      cy -= 8;
+      cy -= 6;
     }
+
+    // Box 2: Practical Reasons
+    page.drawText("Why This Verdict (Key Deterministic Findings):", {
+      x: MARGIN,
+      y: cy,
+      size: 10,
+      font: bold,
+      color: rgb(0.05, 0.05, 0.08),
+    });
+    cy -= 14;
+    for (const r of practicalReasons.slice(0, 3)) {
+      cy = drawWrapped(page, `- ${r}`, MARGIN + 8, cy, font, SMALL, maxW - 8);
+    }
+    cy -= 6;
+
+    // Box 3: Top Named Gaps & Resolution Status
+    page.drawText("Top Evidentiary Gaps & Resolution Status:", {
+      x: MARGIN,
+      y: cy,
+      size: 10,
+      font: bold,
+      color: rgb(0.05, 0.05, 0.08),
+    });
+    cy -= 14;
+    if (namedGaps.length === 0) {
+      cy = drawWrapped(page, "All primary checklist requirements satisfied.", MARGIN + 8, cy, font, SMALL, maxW - 8);
+    } else {
+      for (const g of namedGaps.slice(0, 3)) {
+        const statusText = g.resolved ? "[RESOLVED]" : `[UNRESOLVED: +${g.scoreImpactPts} pts recoverable]`;
+        cy = drawWrapped(
+          page,
+          `* ${g.title}: ${statusText} — ${g.summary}`,
+          MARGIN + 8,
+          cy,
+          font,
+          SMALL,
+          maxW - 8,
+        );
+      }
+    }
+    cy -= 6;
+
+    // Notice
     drawWrapped(
       page,
       simulated
-        ? "SIMULATED — every field in this dossier is seeded demo data, labelled as such. Nothing here is a real transaction, buyer, or delivery."
-        : "Sandbox dispute — test data only. Nothing in this dossier moves real money or decides a real case.",
+        ? "SIMULATED — demo data only. Nothing here is a real transaction, buyer, or delivery."
+        : "Sandbox dispute — test data only. Human approval is strictly mandatory before execution.",
       MARGIN,
       cy,
       bold,
-      BODY,
+      SMALL,
       maxW,
       rgb(0.6, 0.1, 0.1),
     );
-    void items;
   }
 
   // ---- Page 2: invoice / order record ----
@@ -443,9 +482,6 @@ export async function buildEvidencePdf(
 
     const invoiceRef = invoice ? invoice.summary.match(/INV-[A-Z0-9-]+/)?.[0] ?? "invoice on file" : "no invoice on file";
     if (merchantLog) {
-      // Rows are derived from the artifact record itself — no invented
-      // events, timestamps, or IDs. Dates are the YYYY-MM-DD dates stated
-      // in the merchant-log summary; the full record follows below.
       const dates = [...new Set(merchantLog.summary.match(/\d{4}-\d{2}-\d{2}/g) ?? [])];
       const ts = dates.length > 0 ? dates.join(" to ") : "as stated in record";
       page.drawText("Post-delivery use (see record below)", { x: MARGIN, y: cy, size: SMALL, font });
@@ -453,7 +489,6 @@ export async function buildEvidencePdf(
       page.drawText(invoiceRef, { x: MARGIN + 360, y: cy, size: SMALL, font });
       cy -= 18;
       cy -= 6;
-      // Unbounded live record — paginate instead of overflowing the footer.
       const paged = drawWrappedPaged(ctx, page, `Source record: ${merchantLog.summary}`, MARGIN, cy, font, SMALL, maxW, "Merchant-log correlation (continued)");
       page = paged.page;
       cy = paged.y;
@@ -485,9 +520,6 @@ export async function buildEvidencePdf(
     );
     cy -= 12;
     for (const a of visibleArtifacts) {
-      // Pagination guard (finding #9): a live dispute can carry many
-      // artifacts; each takes ~32pt, so start a continuation page before
-      // the cursor would run into the footer.
       if (cy < 110) {
         const next = newPage(ctx, "Evidence manifest (continued)");
         page = next.page;
@@ -499,9 +531,25 @@ export async function buildEvidencePdf(
       cy = drawWrapped(page, `SHA-256: ${hash}`, MARGIN + 12, cy, font, SMALL, maxW);
       cy -= 4;
     }
+
+    // List attached files in manifest table as well
+    if (attached.length > 0) {
+      cy -= 6;
+      page.drawText("Merchant Attached Files & Bills:", { x: MARGIN, y: cy, size: SMALL, font: bold });
+      cy -= 14;
+      for (const att of attached) {
+        if (cy < 110) {
+          const next = newPage(ctx, "Evidence manifest (continued)");
+          page = next.page;
+          cy = next.y;
+        }
+        cy = drawWrapped(page, `Attached: ${att.fileName} [${att.evidenceType}] (${att.quality}, +${att.scoreDelta} pts)`, MARGIN, cy, bold, SMALL, maxW);
+        cy = drawWrapped(page, `SHA-256: ${att.sha256}`, MARGIN + 12, cy, font, SMALL, maxW);
+        cy -= 4;
+      }
+    }
+
     cy -= 6;
-    // Footer key-values are bounded (~150pt) — one pre-draw space check
-    // is enough; they never straddle a page break.
     if (cy < 170) {
       const next = newPage(ctx, "Evidence manifest (continued)");
       page = next.page;
@@ -512,7 +560,7 @@ export async function buildEvidencePdf(
       [
         ["Evidence types sent", evidenceTypes.length > 0 ? evidenceTypes.join(", ") : "(none for this action)"],
         ["Dossier file", `phalanx-${dispute.id}-evidence.pdf`],
-        ["Dossier SHA-256", "See the x-phalanx-pdf-sha256 response header at download time (the hash is of the final bytes)."],
+        ["Dossier SHA-256", "See the x-phalanx-pdf-sha256 response header at download time (hash of final bytes)."],
         ["Size limit", "PayPal: 50 MB total per request, 10 MB per file. This dossier is far under both."],
       ],
       MARGIN,
@@ -522,6 +570,189 @@ export async function buildEvidencePdf(
       maxW,
     );
     void cy;
+  }
+
+  // ---- Subsequent Pages: Dedicated Exhibit pages for attached evidence ----
+  if (attached.length > 0) {
+    let exhibitNum = 1;
+    for (const att of attached) {
+      const title = `Exhibit ${exhibitNum}: ${att.evidenceType} — ${att.fileName}`;
+      exhibitNum += 1;
+
+      const fileBytes = att.base64Data ? Buffer.from(att.base64Data, "base64") : null;
+
+      // Case 1: Uploaded PDF — embed/copy pages
+      if (
+        fileBytes &&
+        att.mimeType === "application/pdf" &&
+        fileBytes.length >= 4 &&
+        fileBytes[0] === 0x25 &&
+        fileBytes[1] === 0x50 &&
+        fileBytes[2] === 0x44 &&
+        fileBytes[3] === 0x46
+      ) {
+        try {
+          const uploadedDoc = await PDFDocument.load(fileBytes);
+          const pageIndices = uploadedDoc.getPageIndices();
+          const copiedPages = await doc.copyPages(uploadedDoc, pageIndices);
+
+          for (let pIdx = 0; pIdx < copiedPages.length; pIdx++) {
+            const page = doc.addPage(copiedPages[pIdx]);
+            ctx.pageNo += 1;
+
+            // Header Banner
+            page.drawText(`${title} (Page ${pIdx + 1} of ${copiedPages.length})`, {
+              x: MARGIN,
+              y: PAGE_H - 32,
+              size: 9,
+              font: bold,
+              color: rgb(0.05, 0.05, 0.08),
+            });
+            page.drawText(`SHA-256: ${att.sha256.slice(0, 32)}…`, {
+              x: PAGE_W - MARGIN - 180,
+              y: PAGE_H - 32,
+              size: 8,
+              font: mono,
+              color: rgb(0.4, 0.4, 0.45),
+            });
+
+            if (simulated) {
+              page.drawText("SIMULATED", {
+                x: 120,
+                y: 420,
+                size: 64,
+                font: bold,
+                color: rgb(0.78, 0.1, 0.1),
+                opacity: 0.12,
+                rotate: degrees(45),
+              });
+            }
+          }
+          continue;
+        } catch {
+          // Fall through to text card fallback
+        }
+      }
+
+      // Case 2: Uploaded Image (PNG / JPG)
+      if (
+        fileBytes &&
+        (att.mimeType === "image/png" ||
+          att.mimeType === "image/jpeg" ||
+          att.mimeType === "image/jpg" ||
+          /\.(png|jpe?g)$/i.test(att.fileName))
+      ) {
+        try {
+          let embeddedImg;
+          if (att.mimeType === "image/png" || att.fileName.toLowerCase().endsWith(".png")) {
+            embeddedImg = await doc.embedPng(fileBytes);
+          } else {
+            embeddedImg = await doc.embedJpg(fileBytes);
+          }
+
+          const { page, y } = newPage(ctx, title);
+          let cy = y;
+
+          cy = drawKv(
+            page,
+            [
+              ["Evidence Type", att.evidenceType],
+              ["Reference ID", att.referenceId || "N/A"],
+              ["Document Date", att.documentDate || "N/A"],
+              ["Quality Assessment", `${att.quality} (+${att.scoreDelta} pts checklist contribution)`],
+              ["File SHA-256", att.sha256],
+            ],
+            MARGIN,
+            cy,
+            font,
+            bold,
+            maxW,
+          );
+          cy -= 16;
+
+          // Scale image to fit remaining page height
+          const imgDims = embeddedImg.scale(1.0);
+          const maxImgW = maxW;
+          const maxImgH = Math.max(100, cy - 60);
+
+          let scaleW = maxImgW / imgDims.width;
+          let scaleH = maxImgH / imgDims.height;
+          let scale = Math.min(1.0, scaleW, scaleH);
+
+          const renderW = imgDims.width * scale;
+          const renderH = imgDims.height * scale;
+          const renderX = MARGIN + (maxW - renderW) / 2;
+          const renderY = cy - renderH;
+
+          page.drawImage(embeddedImg, {
+            x: renderX,
+            y: renderY,
+            width: renderW,
+            height: renderH,
+          });
+
+          continue;
+        } catch {
+          // Fall through to text card fallback
+        }
+      }
+
+      // Case 3: Text / JSON / CSV or Fallback
+      {
+        let { page, y } = newPage(ctx, title);
+        let cy = y;
+
+        cy = drawKv(
+          page,
+          [
+            ["Evidence Type", att.evidenceType],
+            ["Reference ID", att.referenceId || "N/A"],
+            ["Document Date", att.documentDate || "N/A"],
+            ["Quality Assessment", `${att.quality} (+${att.scoreDelta} pts)`],
+            ["File SHA-256", att.sha256],
+          ],
+          MARGIN,
+          cy,
+          font,
+          bold,
+          maxW,
+        );
+        cy -= 12;
+
+        page.drawText("Attached Document Content (Forensic Extract):", {
+          x: MARGIN,
+          y: cy,
+          size: 10,
+          font: bold,
+          color: rgb(0.05, 0.05, 0.08),
+        });
+        cy -= 14;
+
+        let contentStr = "";
+        if (fileBytes) {
+          try {
+            contentStr = fileBytes.toString("utf-8");
+          } catch {
+            contentStr = `[Binary content — ${fileBytes.length} bytes]`;
+          }
+        } else {
+          contentStr = `[No file bytes stored — SHA-256: ${att.sha256}]`;
+        }
+
+        const paged = drawWrappedPaged(
+          ctx,
+          page,
+          contentStr,
+          MARGIN,
+          cy,
+          mono,
+          8,
+          maxW,
+          `${title} (continued)`,
+        );
+        void paged;
+      }
+    }
   }
 
   return doc.save();
