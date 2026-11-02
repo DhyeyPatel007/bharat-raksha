@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
+import { LanguageProvider } from "@/lib/i18n";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -39,9 +40,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "PHALANX — Adversarial Dispute Defense for PayPal Merchants",
+  title: "PHALANX / BHARAT RAKSHA — Autonomous Dispute & Claim Defense",
   description:
-    "Open-source multi-agent dispute workbench for small PayPal merchants. Deterministic checklist scoring, 3-juror deliberation, and mandatory human approval.",
+    "Autonomous dispute defense and claim adjudication shield for PayPal chargebacks and UPI D2C merchants.",
 };
 
 export default function RootLayout({
@@ -54,7 +55,9 @@ export default function RootLayout({
       lang="en"
       className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
     >
-      <body className="light-theme">{children}</body>
+      <body className="light-theme">
+        <LanguageProvider>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }

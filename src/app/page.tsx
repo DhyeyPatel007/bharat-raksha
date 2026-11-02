@@ -69,6 +69,9 @@ export default function LandingPage() {
           </nav>
 
           <div className="actions">
+            <Link className="btn" href="/upi" style={{ backgroundColor: "#ecfdf5", color: "#059669", border: "1px solid #a7f3d0", fontWeight: 700 }}>
+              UPI Shield 🇮🇳
+            </Link>
             <Link className="btn primary" href="/dashboard">
               Open the Workbench →
             </Link>

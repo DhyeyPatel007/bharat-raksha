@@ -103,3 +103,20 @@ See `phalanx-build-brief.md` in the goal workspace. Master prompt: `phalanx-mast
 
 ## License
 MIT — Copyright (c) 2026 Dhyey Patel
+
+
+---
+
+# BHARAT RAKSHA / PHALANX UPI — Autonomous Refund Shield (India D2C)
+
+BharatRaksha (`/upi`) extends the PHALANX adversarial adjudication architecture to Indian UPI & D2C commerce.
+
+### Domain Truths & Architecture
+- **UPI Settlement Reality:** UPI settles instantly into the merchant's bank account (or fails at clearing). There is no escrow, no dispute hold, and nothing to "contest" with NPCI.
+- **Autonomous Adjudication Shield:** Investigates buyer refund claims ("Money debited twice!", "Empty box delivered!", "Damaged item!", "Order stuck in transit!") using real gateway (Razorpay) + logistics (Shiprocket) telemetry.
+- **Deterministic Pure-Code Guardrail:**
+  - Auto-executes small partial settlements strictly under ₹500 (`AUTO_APPROVED_UNDER_500`).
+  - Mandatory Human Approval Gate locks all irreversible UPI refunds >= ₹500 (`LOCKED_AWAITING_HUMAN_APPROVAL`).
+  - Hard-blocks refunds on `failed` payments (`HARD_BLOCK_FAILED_PAYMENT`) and `authorized` payments (`HARD_BLOCK_AUTHORIZED_USE_VOID_OR_CAPTURE`).
+- **Bilingual Interface:** Instant 1-click English ↔ हिंदी toggle with zero page reload.
+- **Consumer Forum (NCH) Ready:** Generates bilingual PDF defense dossiers with RRN reconciliation, warehouse scale certificates, and OTP delivery telemetry.

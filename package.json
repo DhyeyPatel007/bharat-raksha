@@ -1,12 +1,16 @@
 {
-  "name": "phalanx",
+  "name": "bharat-raksha",
   "version": "0.1.0",
   "private": true,
-  "description": "Adversarial dispute-defense swarm for PayPal chargebacks (PayPal AI Hackathon)",
+  "description": "BharatRaksha — Autonomous Refund & Claim Adjudication Shield for Indian D2C Sellers",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "npx tsx scripts/unit-checks.ts && npx tsx tests/upi-guardrail-and-swarm.test.ts",
+    "test:upi": "npx tsx tests/upi-guardrail-and-swarm.test.ts",
+    "test:negative": "node scripts/negative-tests.mjs",
+    "test:acceptance": "node scripts/upi-acceptance.mjs"
   },
   "dependencies": {
     "ag-grid-community": "^36.2.0",

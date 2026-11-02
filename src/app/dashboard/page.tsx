@@ -17,6 +17,7 @@ import type {
 } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
+import LanguageToggle from "@/components/upi/LanguageToggle";
 
 const phalanxLightGridTheme = themeQuartz.withParams({
   backgroundColor: "#FFFFFF",
@@ -314,6 +315,22 @@ export default function DashboardPage() {
           </nav>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Link
+              href="/upi"
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                textDecoration: "none",
+                padding: "5px 12px",
+                borderRadius: 16,
+                backgroundColor: "#ecfdf5",
+                color: "#059669",
+                border: "1px solid #a7f3d0",
+              }}
+            >
+              🇮🇳 UPI Shield (India)
+            </Link>
+            <LanguageToggle />
             <button onClick={refresh} disabled={loading} style={{ fontSize: 13, padding: "6px 14px" }}>
               {loading ? "Refreshing…" : "Refresh"}
             </button>
