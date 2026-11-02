@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 340" width="100%" height="100%" fill="none">
+  <defs>
+    <style>
+      .card { fill: #FFFFFF; stroke: #E6DFD5; stroke-width: 1.5; }
+      .pill-j1 { fill: #EFF6FF; stroke: #BFDBFE; }
+      .pill-j2 { fill: #F0FDF4; stroke: #BBF7D0; }
+      .pill-j3 { fill: #FEF3C7; stroke: #FDE68A; }
+      .title-serif { font-family: 'Instrument Serif', Georgia, serif; font-size: 20px; fill: #1A1A1A; }
+      .txt { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; fill: #4B463E; }
+      .head { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; font-weight: 700; fill: #1A1A1A; }
+      .accent { fill: #C93A1B; font-weight: 700; }
+      .line { stroke: #D4C9BC; stroke-width: 1.5; stroke-dasharray: 4 3; }
+    </style>
+  </defs>
+
+  <!-- Left: Telemetry Feeds -->
+  <rect x="20" y="25" width="220" height="290" rx="8" class="card" />
+  <rect x="35" y="40" width="190" height="26" rx="4" fill="#F4EBE1" />
+  <text x="45" y="58" font-family="sans-serif" font-size="11px" font-weight="700" fill="#755E46">HARD TELEMETRY INPUTS</text>
+
+  <rect x="35" y="80" width="190" height="65" rx="6" fill="#FBF9F5" stroke="#E6DFD5" />
+  <text x="45" y="100" class="head">Razorpay Telemetry</text>
+  <text x="45" y="120" class="txt">12-Digit UPI RRN Check</text>
+  <text x="45" y="136" class="txt">Bank Settlement State</text>
+
+  <rect x="35" y="155" width="190" height="65" rx="6" fill="#FBF9F5" stroke="#E6DFD5" />
+  <text x="45" y="175" class="head">Shiprocket Telemetry</text>
+  <text x="45" y="195" class="txt">AWB Weighing Cert (kg)</text>
+  <text x="45" y="211" class="txt">Doorstep OTP Verification</text>
+
+  <rect x="35" y="230" width="190" height="65" rx="6" fill="#FBF9F5" stroke="#E6DFD5" />
+  <text x="45" y="250" class="head">Buyer Trust Profile</text>
+  <text x="45" y="270" class="txt">Claim Frequency &amp; Velocity</text>
+  <text x="45" y="286" class="txt">Historical Return Rates</text>
+
+  <!-- Middle: 3 LLM Jurors -->
+  <line x1="240" y1="112" x2="280" y2="75" class="line" />
+  <line x1="240" y1="187" x2="280" y2="170" class="line" />
+  <line x1="240" y1="262" x2="280" y2="265" class="line" />
+
+  <!-- Juror 1 -->
+  <rect x="280" y="25" width="280" height="85" rx="8" class="card" />
+  <rect x="295" y="38" width="80" height="20" rx="4" class="pill-j1" />
+  <text x="303" y="52" font-family="sans-serif" font-size="10px" font-weight="700" fill="#1E40AF">JUROR 1 • LLM</text>
+  <text x="385" y="53" class="head">Gateway State Auditor</text>
+  <text x="295" y="76" class="txt">Audits clearing proof, duplicate debits, &amp;</text>
+  <text x="295" y="94" class="txt">acquirer reference number validity (Qwen 30B).</text>
+
+  <!-- Juror 2 -->
+  <rect x="280" y="125" width="280" height="85" rx="8" class="card" />
+  <rect x="295" y="138" width="80" height="20" rx="4" class="pill-j2" />
+  <text x="303" y="152" font-family="sans-serif" font-size="10px" font-weight="700" fill="#166534">JUROR 2 • LLM</text>
+  <text x="385" y="153" class="head">Fulfillment Forensics</text>
+  <text x="295" y="176" class="txt">Compares dispatch vs courier scale weights,</text>
+  <text x="295" y="194" class="txt">detects empty-box fraud, checks doorstep OTP.</text>
+
+  <!-- Juror 3 -->
+  <rect x="280" y="225" width="280" height="85" rx="8" class="card" />
+  <rect x="295" y="238" width="80" height="20" rx="4" class="pill-j3" />
+  <text x="303" y="252" font-family="sans-serif" font-size="10px" font-weight="700" fill="#92400E">JUROR 3 • LLM</text>
+  <text x="385" y="253" class="head">Buyer History Auditor</text>
+  <text x="295" y="276" class="txt">Flags repeat refund exploiters, serial claimers,</text>
+  <text x="295" y="294" class="txt">and evaluates abuse risk against merchant policy.</text>
+
+  <!-- Connector to Arbiter & Guardrail -->
+  <line x1="560" y1="67" x2="600" y2="170" class="line" />
+  <line x1="560" y1="167" x2="600" y2="170" class="line" />
+  <line x1="560" y1="267" x2="600" y2="170" class="line" />
+
+  <!-- Right: Score Arbiter + Pure Code Guardrail -->
+  <rect x="600" y="25" width="300" height="290" rx="8" style="fill:#FBF9F5; stroke:#C93A1B; stroke-width: 2;" />
+  <rect x="615" y="40" width="135" height="24" rx="4" fill="#FBEAE7" />
+  <text x="625" y="57" font-family="sans-serif" font-size="10px" font-weight="800" fill="#C93A1B">VERDICT ARBITER &amp; GATE</text>
+
+  <text x="615" y="95" class="title-serif">Hare-Niemeyer Score Math</text>
+  <text x="615" y="118" class="txt">Proportional allocation guarantee:</text>
+  <rect x="615" y="128" width="270" height="32" rx="4" fill="#FFFFFF" stroke="#E6DFD5" />
+  <text x="625" y="149" font-family="monospace" font-size="12px" font-weight="700" fill="#1A1A1A">J1_pts + J2_pts + J3_pts ≡ Score</text>
+
+  <path d="M 615 180 L 885 180" stroke="#E6DFD5" stroke-width="1" />
+
+  <text x="615" y="208" class="head">Deterministic Pure-Code Guardrail</text>
+  <text x="615" y="230" class="txt">• Hard blocks uncaptured / failed payments</text>
+  <text x="615" y="250" class="txt">• Mandatory Human Approval on all refunds</text>
+  <text x="615" y="270" class="txt">• Outbound Telegram Bot Alert with 1-Tap</text>
+  <text x="615" y="295" font-family="sans-serif" font-size="11px" font-weight="700" fill="#C93A1B">Zero Unsupervised Money Movement</text>
+</svg>

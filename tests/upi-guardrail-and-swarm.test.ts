@@ -1,3 +1,8 @@
+import { NextRequest } from "next/server";
+import { POST as telegramWebhookPost } from "../src/app/api/upi/webhooks/telegram/route";
+import { POST as webIntakePost } from "../src/app/api/upi/cases/web-intake/route";
+import { POST as realIntakePost } from "../src/app/api/upi/cases/real-intake/route";
+import { getUpiAuditLogs } from "../src/lib/upi/store-db";
 // PHALANX UPI — Unit & Negative Test Suite
 // Verifies: Guardrail < ₹500 auto-approve, >= ₹500 human lock, hard blocks on failed/authorized,
 // 12-digit RRN extraction, Order ID extraction, Cases A/B/C deterministic verdicts, and bilingual dictionary.
@@ -984,6 +989,266 @@ async function runAll() {
       if (oldBase) process.env.LLM_BASE_URL = oldBase;
       else delete process.env.LLM_BASE_URL;
     }
+  });
+
+
+  // 15. ORDER_NOT_FOUND Guard Tests (§1)
+  await test("ORDER_NOT_FOUND: Telegram webhook rejects unknown RRN, creates no case, logs UNMATCHED_CLAIM", async () => {
+    await resetDemoCases();
+    clearMerchantChat();
+    registerMerchantChat("9820199482");
+
+    const unknownRrn = "999888777666";
+    const req = new NextRequest("http://localhost:3000/api/upi/webhooks/telegram", {
+      method: "POST",
+      body: JSON.stringify({
+        message: {
+          message_id: 101,
+          chat: { id: "buyer_chat_404", type: "private" },
+          text: `My payment failed for RRN ${unknownRrn}`,
+        },
+      }),
+    });
+
+    const res = await telegramWebhookPost(req);
+    const data = await res.json();
+
+    assert.equal(data.status, "order_not_found");
+    assert.ok(data.message.includes("couldn't find a payment"));
+
+    // Case must NOT be created
+    const createdCase = await getUpiCaseById(`UPI-CASE-${unknownRrn.slice(-4)}`);
+    assert.equal(createdCase, null);
+
+    // Audit store must contain UNMATCHED_CLAIM
+    const auditLogs = await getUpiAuditLogs("UNMATCHED");
+    const unmatched = auditLogs.find((l) => l.action_type === "UNMATCHED_CLAIM" && l.input_payload.rrn === unknownRrn);
+    assert.ok(unmatched, "Audit store must record UNMATCHED_CLAIM entry");
+  });
+
+  await test("ORDER_NOT_FOUND: Telegram webhook with phone number only (missing RRN) creates no case, asks for 12-digit RRN", async () => {
+    await resetDemoCases();
+    clearMerchantChat();
+    registerMerchantChat("9820199482");
+
+    const req = new NextRequest("http://localhost:3000/api/upi/webhooks/telegram", {
+      method: "POST",
+      body: JSON.stringify({
+        message: {
+          message_id: 102,
+          chat: { id: "buyer_chat_missing_rrn", type: "private" },
+          text: "Help me, my phone number is 9876543210 and money was debited",
+        },
+      }),
+    });
+
+    const res = await telegramWebhookPost(req);
+    const data = await res.json();
+
+    assert.equal(data.status, "missing_rrn");
+    assert.ok(data.message.includes("12-digit UPI RRN"));
+
+    // Case A (default) must NOT be modified or updated
+    const caseA = await getUpiCaseById("UPI-CASE-A");
+    assert.notEqual(caseA?.buyer_message_en, "Help me, my phone number is 9876543210 and money was debited");
+
+    // Audit log must record MISSING_RRN
+    const auditLogs = await getUpiAuditLogs("UNMATCHED");
+    const unmatched = auditLogs.find((l) => l.action_type === "UNMATCHED_CLAIM" && l.input_payload.reason === "MISSING_RRN");
+    assert.ok(unmatched, "Audit store must record UNMATCHED_CLAIM for missing RRN");
+  });
+
+  await test("ORDER_NOT_FOUND: Real-intake rejects unknown payment/RRN, logs UNMATCHED_CLAIM", async () => {
+    await resetDemoCases();
+
+    const req = new NextRequest("http://localhost:3000/api/upi/cases/real-intake", {
+      method: "POST",
+      body: JSON.stringify({
+        paymentId: "pay_unknown_fake_999",
+        rrn: "111222333444",
+        claimType: "EMPTY_BOX",
+        buyerMessage: "Fake payment attempt",
+      }),
+    });
+
+    const res = await realIntakePost(req);
+    assert.equal(res.status, 404);
+    const data = await res.json();
+    assert.equal(data.status, "order_not_found");
+    assert.ok(data.error.includes("couldn't find a payment"));
+
+    // Case must NOT exist
+    const c = await getUpiCaseById("UPI-CASE-3444");
+    assert.equal(c, null);
+  });
+
+  // 16. Telegram Group Intake Tests (§2)
+  await test("Telegram Group Intake: Group message with valid RRN creates case, sends short group acknowledgement, and alerts merchant in DM", async () => {
+    await resetDemoCases();
+    clearMerchantChat();
+    registerMerchantChat("9820199482");
+
+    const groupChatId = "-100192837465";
+    const req = new NextRequest("http://localhost:3000/api/upi/webhooks/telegram", {
+      method: "POST",
+      body: JSON.stringify({
+        message: {
+          message_id: 201,
+          from: { id: "buyer_in_group_1", first_name: "Rahul" },
+          chat: { id: groupChatId, title: "D2C Payment Grievances", type: "supergroup" },
+          text: "Hi support, my order ORD-KRY-8801 with RRN 631514892011 was charged twice!",
+        },
+      }),
+    });
+
+    const res = await telegramWebhookPost(req);
+    const data = await res.json();
+
+    assert.equal(data.status, "ok");
+    assert.equal(data.processedCount, 1);
+
+    const c = await getUpiCaseById("UPI-CASE-A");
+    assert.ok(c);
+    assert.equal(c?.origin_group_chat_id, groupChatId);
+    assert.equal(c?.intake_source, "TELEGRAM_GROUP");
+
+    // Verify group got short acknowledgement
+    const recentLogs = getRecentTelegramLogs();
+    const groupAck = recentLogs.find((l) => l.to === groupChatId && l.text.includes("Claim received"));
+    assert.ok(groupAck, "Group chat must receive short acknowledgement");
+
+    // Verify merchant got full report with buttons in DM
+    const merchantAlert = recentLogs.find(
+      (l) => l.to === "9820199482" && l.text.includes("New UPI Claim Alert") && l.replyMarkup !== undefined
+    );
+    assert.ok(merchantAlert, "Merchant personal DM must receive alert with inline keyboard");
+  });
+
+  await test("Telegram Group Intake: Group message with unknown RRN produces not-found reply, no case, no DM alert", async () => {
+    await resetDemoCases();
+    clearMerchantChat();
+    registerMerchantChat("9820199482");
+
+    const groupChatId = "-100192837465";
+    const unknownRrn = "888777666555";
+    const req = new NextRequest("http://localhost:3000/api/upi/webhooks/telegram", {
+      method: "POST",
+      body: JSON.stringify({
+        message: {
+          message_id: 202,
+          from: { id: "buyer_in_group_2", first_name: "Pooja" },
+          chat: { id: groupChatId, title: "D2C Payment Grievances", type: "supergroup" },
+          text: `Payment issue with RRN ${unknownRrn}`,
+        },
+      }),
+    });
+
+    const res = await telegramWebhookPost(req);
+    const data = await res.json();
+
+    assert.equal(data.status, "order_not_found");
+
+    const recentLogs = getRecentTelegramLogs();
+    const groupNotFound = recentLogs.find((l) => l.to === groupChatId && l.text.includes("Payment Not Found"));
+    assert.ok(groupNotFound, "Group must receive payment not found text");
+
+    const merchantAlert = recentLogs.find(
+      (l) => l.to === "9820199482" && l.text.includes(unknownRrn)
+    );
+    assert.equal(merchantAlert, undefined, "Merchant DM must NOT receive alert for unknown RRN");
+  });
+
+  await test("Telegram Group Intake: Group member callback (non-merchant) is ignored", async () => {
+    registerMerchantChat("9820199482");
+    const groupMemberChatId = "555444333";
+
+    const req = new NextRequest("http://localhost:3000/api/upi/webhooks/telegram", {
+      method: "POST",
+      body: JSON.stringify({
+        callback_query: {
+          id: "cb_unauth_1",
+          from: { id: groupMemberChatId, first_name: "Rogue Buyer" },
+          message: {
+            message_id: 301,
+            chat: { id: groupMemberChatId, type: "private" },
+          },
+          data: "approve:UPI-CASE-B",
+        },
+      }),
+    });
+
+    const res = await telegramWebhookPost(req);
+    const data = await res.json();
+    assert.equal(data.status, "ignored_unauthorized_chat");
+  });
+
+  // 17. Web Intake Tests (§3)
+  await test("Web Intake: Valid RRN creates case, runs swarm, and sends merchant Telegram alert", async () => {
+    await resetDemoCases();
+    clearMerchantChat();
+    registerMerchantChat("9820199482");
+
+    const req = new NextRequest("http://localhost:3000/api/upi/cases/web-intake", {
+      method: "POST",
+      body: JSON.stringify({
+        rrn: "631518440293",
+        orderId: "ORD-KRY-8802",
+        description: "Scratched product arrived in mail",
+        phone: "+919820199482",
+      }),
+    });
+
+    const res = await webIntakePost(req);
+    assert.equal(res.status, 201);
+    const data = await res.json();
+
+    assert.equal(data.status, "ok");
+    assert.ok(data.case);
+    assert.equal(data.case.verdict, "OFFER_PARTIAL");
+    assert.equal(data.case.score, 60);
+    assert.equal(data.case.intake_source, "WEB_INTAKE");
+
+    // Merchant Telegram alert sent
+    const recentLogs = getRecentTelegramLogs();
+    const alert = recentLogs.find((l) => l.to === "9820199482" && l.text.includes("UPI-CASE-B"));
+    assert.ok(alert, "Merchant Telegram alert must be dispatched on web intake");
+  });
+
+  await test("Web Intake: Unknown RRN returns 404 order_not_found without creating case", async () => {
+    await resetDemoCases();
+
+    const req = new NextRequest("http://localhost:3000/api/upi/cases/web-intake", {
+      method: "POST",
+      body: JSON.stringify({
+        rrn: "000111222333",
+        description: "Unknown payment claim",
+      }),
+    });
+
+    const res = await webIntakePost(req);
+    assert.equal(res.status, 404);
+    const data = await res.json();
+
+    assert.equal(data.status, "order_not_found");
+    assert.ok(data.error.includes("couldn't find a payment"));
+
+    const c = await getUpiCaseById("UPI-CASE-2333");
+    assert.equal(c, null);
+  });
+
+  await test("Web Intake: Invalid RRN format returns 400 client error", async () => {
+    const req = new NextRequest("http://localhost:3000/api/upi/cases/web-intake", {
+      method: "POST",
+      body: JSON.stringify({
+        rrn: "12345", // not 12 digits
+        description: "Invalid RRN test",
+      }),
+    });
+
+    const res = await webIntakePost(req);
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.ok(data.error.includes("12 digits"));
   });
 
   console.log(`\nAll ${passed}/${total} PHALANX UPI checks passed successfully!`);

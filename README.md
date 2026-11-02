@@ -2,57 +2,64 @@
 
 Autonomous dispute defense and claim adjudication shield built for Indian D2C merchants operating on UPI rails.
 
-## Overview
+---
+
+## The Core Problem & UPI Ground Truth
 Indian D2C brands face relentless customer claims ("Money debited twice via GPay!", "Received an empty box!", "Order delayed in transit!"). Unlike credit cards or PayPal, **UPI settles immediately into the merchant's bank account with zero escrow, zero dispute hold, and no NPCI arbitration mechanism**. Any refund issued is direct, irreversible money loss.
 
-BharatRaksha provides an autonomous, pure-code adjudication shield that investigates customer claims against bank clearing records (Razorpay) and courier telemetry (Shiprocket), generates bilingual defense dossiers, and enforces a mandatory human approval gate before every single refund.
+BharatRaksha provides an autonomous, pure-code adjudication shield that investigates customer claims against bank clearing records (Razorpay) and courier telemetry (Shiprocket), generates bilingual defense dossiers for Consumer Forum (NCH), and enforces a mandatory human approval gate before every single refund.
 
 ---
 
-## What It Does
-- **Root Standalone Experience (`/`):** Dedicated Indian D2C workbench with full English ↔ हिंदी bilingual localization and zero page reload.
-- **LLM Juror Swarm Layer:**
-  - 3 domain auditor personas deliberate in parallel:
-    1. `Gateway & Settlement Juror`: Payments, settlement trace, clearing reality, double-debit claims.
-    2. `Order & Logistics Telemetry Juror`: Warehouse packing scale certificates, courier hub transit weight, doorstep OTP handshake.
-    3. `Buyer History & Guardrail Juror`: Customer refund velocity, repeat empty-box strikes, merchant human approval gate.
-  - Powered by Token Factory / Nebius (`Qwen/Qwen3-30B-A3B-Instruct-2507`).
-  - **Hard Invariant:** Deterministic checklist scoring (0-100), verdict mapping, and guardrail logic remain 100% pure-code and never changed by the LLM. The LLM articulates forensic reasoning.
-  - **Airtight Output Validation:** Every LLM draft is inspected before acceptance. Any draft with hallucinated ₹ amounts, invented 12-digit RRNs, unregistered Order IDs, or length < 40 chars is rejected and falls back to deterministic templates.
-  - **UI Source Badges:** Juror cards display a `✨ AI` badge with the active model name or `📋 Template` fallback.
-  - **Auto-Run on Case View:** When a judge opens any case detail view while the LLM is configured, the swarm executes once automatically to generate live AI deliberations. Cost: 1 auto-run = 3 LLM calls (1 parallel call per juror persona). Results are persisted in the case store so revisiting or refreshing consumes 0 additional tokens. The list view never auto-runs.
-- **Intake Channel:**
-  - **Telegram Bot API Today:** Free, instant setup via BotFather (`/api/upi/webhooks/telegram`, `TELEGRAM_BOT_TOKEN`). Parses 12-digit UPI RRNs (`/\b(\d{12})\b/`) and Order IDs (`/\b(ORD-[A-Z0-9-]+)\b/i`), and dispatches instant status updates and refund receipts via Telegram.
-  - **WhatsApp Cloud API Parked:** Parked in `src/lib/upi/whatsapp.ts` — returns when the merchant acquires an approved Meta WhatsApp Business Number.
-- **Telegram Merchant Bot (Mobile-First Operations):**
-  - Run the entire adjudication workbench directly from Telegram without visiting the web UI.
-  - **`/start`**: Registers the merchant chat ID to receive real-time claim alerts.
-  - **`/status`**: Lists all open claims currently awaiting merchant approval with amounts and verdicts.
-  - **New-Claim Outbound Alerts**: Every new claim ingested post-boot triggers an alert with case telemetry and inline action buttons: `[✅ Approve] [❌ Reject] [🔍 Details]`.
-  - **One-Tap Adjudication**: Tapping Approve executes the refund through the shared pure-code guardrail and Razorpay API, updating the alert message in real time.
-  - **Single-Tenant Security**: Strict chat validation ensures only the registered merchant can approve, reject, or inspect claims. All unauthorized interactions are silently ignored.
-- **Visible Live Swarm Execution:**
-  - Every case features a **"Run swarm"** button that re-evaluates the forensic jurors live and animates the 4 deterministic stages:
-    1. `Razorpay RRN check`: Verifies captured vs failed bank attempts and duplicate deductions.
-    2. `Shiprocket tracking`: Verifies dispatch scale weights against courier hub weighment and doorstep OTP delivery.
-    3. `3-Juror Forensic Audit`: Evaluates Gateway (35 pts), Fulfillment Forensics (30 pts), and Buyer Risk Profile (17 pts).
-    4. `Guardrail Decision`: Enforces merchant approval requirements before refund execution.
-- **Approval Before Every Refund:**
-  - Configurable merchant auto-refund ceiling `AUTO_REFUND_CEILING_PAISE` (default 0 = approval required before every refund).
-  - Even small settlements (e.g. Case B ₹300) halt at the mandatory Human Approval Gate (`AWAITING_HUMAN_APPROVAL`).
-- **Real-Mode Intake:**
-  - "New case from real payment" flow allows merchants to paste real Razorpay test-mode payment IDs (`pay_...`) and RRNs.
-  - Fetches payment details live from Razorpay API (`https://api.razorpay.com/v1/payments/{id}`) using `rzp_test_*` credentials from `.env.local`.
-  - Gracefully falls back to sandbox emulator for mock seeded data.
-- **Bilingual Consumer Forum (NCH) Ready Dossier:**
-  - Server-side PDF generation (`pdf-lib`) assembling transaction evidence, courier scale matching, OTP logs, and SHA-256 evidence integrity manifests.
-- **Legacy Phalanx PayPal Tool:** Parked under `/legacy-phalanx/`.
+## Application Architecture & Routing
+
+| Route | Role | Description |
+|---|---|---|
+| `/` | **Landing Page** | Editorial light-theme landing page (Warm paper `#F7F3EA`, ink text, vermilion `#C93A1B` accent) featuring the 3-step flow, architecture diagram, seeded cases, and hackathon details. |
+| `/dashboard` | **Merchant Workbench** | Live adjudication ledger, telemetry status bar, real-payment intake modal, and Telegram simulation drawer. |
+| `/dashboard/[id]` | **Case Detail** | Deep forensic dossier with juror deliberations, telemetry breakdown, and NCH PDF download. |
+| `/how-to-use` | **Runbook & Guide** | Step-by-step guide for merchants and buyers covering multichannel intake, forensics, and Telegram controller setup. |
+| `/terms` | **Plain-Language Terms** | Disclaimers regarding test-mode credentials, demo persistence, and mandatory human authorization. |
+| `/raise-issue` | **Buyer Support Portal** | Public web intake form with 12-digit UPI RRN validation, ORDER_NOT_FOUND protection, and real-time status card. |
+| `/upi` | **Legacy Redirect** | Automatically redirects to `/dashboard` for backwards compatibility. |
+
+---
+
+## Key Capabilities
+
+### 1. Multichannel Dispute Ingest
+- **Telegram Support Groups (§2):** Merchants add the bot to their customer payment support group. When a buyer posts an issue with a 12-digit RRN, the bot posts a short acknowledgement in the group, executes the swarm, and dispatches the full interactive alert to the merchant's personal DM. Once decided, the outcome is announced back in the group.
+  > **Setup for Groups:** Add the bot as group admin, or open [@BotFather](https://t.me/botfather), select your bot, type `/setprivacy`, and choose `Disable` so the bot can read messages in groups.
+- **Telegram Buyer Bot:** Direct one-on-one claim submission.
+- **Web Intake Form (`/raise-issue`) (§3):** Fast, accessible web submission validating 12-digit UPI RRNs.
+- **Real-Mode Payment Ingestion:** Direct test-mode Razorpay payment ID (`pay_...`) intake fetching live payment telemetry from Razorpay API.
+
+### 2. ORDER_NOT_FOUND Guard (§1)
+- If a message lacks a 12-digit RRN, the bot prompts the buyer for it.
+- If the RRN / Order ID is not found in the merchant's store or Razorpay records, no case is created, no swarm runs, and no merchant alert is triggered.
+- The buyer receives an immediate informative message: *"We couldn't find a payment with this RRN / order ID. Please check the 12-digit UPI RRN from your payment app and try again."*
+- Unmatched attempts are recorded as `UNMATCHED_CLAIM` audit log entries for merchant visibility.
+
+### 3. LLM Juror Swarm with Proportional Score Math
+- **3 Domain Juror Personas:**
+  1. `Gateway State Auditor`: Bank clearing reality, duplicate deduction detection, Razorpay RRN reconciliation.
+  2. `Order & Logistics Forensics`: Surat warehouse packing scale certificate vs courier hub weighment and doorstep OTP delivery verification.
+  3. `Buyer History & Trust`: Refund velocity, return frequency, and policy thresholds.
+- **Qwen 30B via Token Factory:** (`Qwen/Qwen3-30B-A3B-Instruct-2507`).
+- **Mathematical Invariant:** Juror score contributions are normalized using the Hare-Niemeyer (largest-remainder) algorithm so that $J_1 + J_2 + J_3 \equiv \text{Score}$ across all cases in both template and LLM execution paths.
+- **Auto-Run on Detail Open:** When viewing case details, the swarm auto-executes once with live LLM reasoning (3 parallel calls) and persists to store. Revisiting consumes 0 additional tokens.
+
+### 4. Telegram Merchant Controller (Mobile Operations)
+- **`/start`:** Registers the merchant's personal Telegram chat.
+- **`/status`:** Lists open claims awaiting merchant decision.
+- **Interactive Alerts:** Outbound alerts on new claims with inline buttons: `[✅ Approve]` `[❌ Reject]` `[🔍 Details]`.
+- **1-Tap Payout:** Approving executes the refund live via Razorpay API and notifies the buyer.
 
 ---
 
 ## 3 Seeded Demo Scenarios
 
-| Case ID | Order / Channel | Claim Details | Forensic Telemetry | Verdict & Outcome |
+| Case ID | Order / Amount | Claim Details | Forensic Telemetry | Verdict & Outcome |
 |---|---|---|---|---|
 | **UPI-CASE-A** | ORD-KRY-8801 · ₹3,200 | Buyer alleges ₹3,200 debited twice and box delivered empty. | Single captured payment on Razorpay (second attempt timed out at NPCI); Shiprocket confirms doorstep OTP (4921) with delivery weight (0.85 kg) exactly matching Surat warehouse scale certificate. | **REJECT_CLAIM (82/100)** · Defense evidence dossier prepared for Consumer Forum. |
 | **UPI-CASE-B** | ORD-KRY-8802 · ₹1,200 | Buyer alleges scratch on casing, demands ₹1,200 full refund. | Razorpay captured ₹1,200; package delivered; buyer is a loyal 0-refund customer. 25% goodwill partial settlement (₹300) recommended. | **OFFER_PARTIAL (60/100)** · Halted at Human Gate (`AWAITING_HUMAN_APPROVAL`, ₹300). |
@@ -60,7 +67,7 @@ BharatRaksha provides an autonomous, pure-code adjudication shield that investig
 
 ---
 
-## Quickstart Setup
+## Setup & Configuration
 
 1. Copy environment template:
 ```bash
@@ -76,46 +83,37 @@ RAZORPAY_KEY_SECRET=...
 # Shiprocket Telemetry (mock | live)
 SHIPROCKET_MODE=mock
 
-# Telegram Bot API (Optional for live outbound bot replies)
+# Telegram Bot API
 TELEGRAM_BOT_TOKEN=
-# Optional merchant chat ID override (bypasses /start registration requirement)
 TELEGRAM_MERCHANT_CHAT_ID=
 
-# LLM Provider Configuration (Token Factory / OpenAI-compatible endpoint)
+# LLM Provider Configuration (Token Factory)
 LLM_PROVIDER=custom
 LLM_BASE_URL=https://api.tokenfactory.nebius.com/v1
 LLM_API_KEY=v1.CmQ...
 LLM_MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507
 ```
 
-### Telegram Webhook Setup (Production / Live Bot)
-To connect your Telegram bot to the live webhook on deployment:
+3. Connect Telegram Webhook:
 ```bash
 curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://bharatraksha.krynex.in/api/upi/webhooks/telegram"
 ```
-Or for local testing with ngrok/localtunnel:
-```bash
-curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<your-tunnel-domain>/api/upi/webhooks/telegram"
-```
 
-> **Note for Vercel Deployment:** After pushing to GitHub, add the environment variables (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_MERCHANT_CHAT_ID`, and the 4 LLM variables `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`) to your Vercel Project Settings (Environment Variables, Production) so the live demo at [bharatraksha.krynex.in](https://bharatraksha.krynex.in) operates smoothly in production.
-
-3. Install & Run:
+4. Install & Run:
 ```bash
 npm install
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) for the standalone BharatRaksha home.
 
 ---
 
-## Verification & Testing Suite
+## Testing & Verification
 
-- **Unit & UPI Tests:**
+- **Automated Test Suite:**
 ```bash
 npm test
 ```
-Runs 144 unit checks + 40 UPI checks (including Telegram parser regex, merchant /start registration, inline callback approvals, guardrail approval gates, LLM mock draft verification, hallucination rejection, Razorpay security, and Shiprocket mock).
+Runs 144 unit tests + 53 UPI tests (including ORDER_NOT_FOUND guards, Telegram group intake, web intake, proportional score allocation, auto-run behavior, and Razorpay security).
 
 - **Production Build:**
 ```bash
@@ -124,15 +122,28 @@ npm run build
 
 - **Localhost Acceptance Verifier:**
 ```bash
-npx next start -p 3100
+PORT=3100 npx next start -p 3100
 npm run test:acceptance
 ```
-Validates all cases, human approval gate, idempotency locks, PDF download, and Telegram webhook against port 3100.
+Validates all 17 end-to-end steps covering `/`, `/dashboard`, `/how-to-use`, `/terms`, `/raise-issue`, web intake API, PDF dossiers, and guardrail locks.
 
 - **Negative Tests:**
 ```bash
 node scripts/negative-tests.mjs
 ```
+Validates all 72 negative test assertions.
+
+---
+
+## Hackathon & Team Credits
+- **Hackathon:** AgentX 2026
+- **Track:** Problem Statement PS-04 — *Autonomous Support Agent for Online Sellers*
+- **Timeline:** Idea Round: Nov 2, 2026 · Build Round: Nov 11–12, 2026
+- **Team:**
+  - **Dhyey Patel** — Team Leader & Architect
+  - **Snehil Sahay** — Swarm & Logistics Forensics
+  - **Kislay Kumar** — Gateway & Telemetry Integrations
+  - **Kartikey Singh** — Adjudication & Policy Engineering
 
 ---
 

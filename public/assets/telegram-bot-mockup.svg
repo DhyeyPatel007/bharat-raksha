@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 500" width="100%" height="100%" fill="none">
+  <defs>
+    <style>
+      .phone-frame { fill: #1E232A; rx: 32px; }
+      .phone-screen { fill: #0E1621; rx: 24px; }
+      .tg-bubble { fill: #182533; rx: 12px; }
+      .btn { fill: #2B5278; rx: 6px; cursor: pointer; }
+      .btn-reject { fill: #4E2728; rx: 6px; }
+      .btn-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; font-weight: 700; fill: #FFFFFF; text-anchor: middle; }
+      .tg-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; fill: #E4ECF2; }
+      .tg-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; fill: #7E97AB; }
+      .tg-bold { font-weight: 700; fill: #FFFFFF; }
+      .mono { font-family: monospace; font-size: 11px; fill: #6DBBFF; }
+    </style>
+  </defs>
+
+  <!-- Phone Shell -->
+  <rect x="10" y="10" width="360" height="480" class="phone-frame" stroke="#374151" stroke-width="4" />
+  
+  <!-- Notch/Camera -->
+  <circle cx="190" cy="24" r="5" fill="#000000" />
+
+  <!-- Screen -->
+  <rect x="22" y="38" width="336" height="438" class="phone-screen" />
+
+  <!-- Telegram Top Header -->
+  <rect x="22" y="38" width="336" height="44" fill="#17212B" />
+  <circle cx="50" cy="60" r="14" fill="#C93A1B" />
+  <text x="50" y="65" font-family="sans-serif" font-size="12px" fill="#FFFFFF" text-anchor="middle" font-weight="bold">🛡️</text>
+  <text x="74" y="55" font-family="sans-serif" font-size="13px" font-weight="700" fill="#FFFFFF">BharatRaksha Bot</text>
+  <text x="74" y="69" class="tg-sub">bot • merchant notifications</text>
+
+  <!-- Date Pill -->
+  <rect x="145" y="94" width="90" height="20" rx="10" fill="#111B24" />
+  <text x="190" y="108" class="tg-sub" text-anchor="middle">TODAY</text>
+
+  <!-- Message Bubble -->
+  <rect x="36" y="125" width="308" height="255" class="tg-bubble" />
+
+  <!-- Bubble Header -->
+  <text x="50" y="148" font-family="sans-serif" font-size="13px" font-weight="800" fill="#FFB74D">⚡ NEW CLAIM ALERT</text>
+  <text x="50" y="170" class="tg-text">Case: <tspan class="tg-bold">UPI-CASE-8801</tspan></text>
+  <text x="50" y="188" class="tg-text">Order: <tspan class="tg-bold">ORD-KRY-8801</tspan></text>
+  <text x="50" y="206" class="tg-text">UPI RRN: <tspan class="mono">631518440293</tspan></text>
+  
+  <line x1="50" y1="216" x2="330" y2="216" stroke="#253545" stroke-width="1" />
+
+  <text x="50" y="235" class="tg-text">Claim Amount: <tspan class="tg-bold">₹1,200.00</tspan></text>
+  <text x="50" y="253" class="tg-text">Claim Type: <tspan fill="#64B5F6">DAMAGED_ITEM</tspan></text>
+  <text x="50" y="271" class="tg-text">Verdict: <tspan fill="#FFB74D" font-weight="700">OFFER_PARTIAL</tspan> (60/100)</text>
+  <text x="50" y="289" class="tg-text">Recommended Refund: <tspan fill="#81C784" font-weight="700">₹300.00</tspan></text>
+
+  <!-- Inline Buttons -->
+  <!-- Row 1: Approve & Reject -->
+  <rect x="46" y="305" width="138" height="32" class="btn" fill="#2E7D32" />
+  <text x="115" y="325" class="btn-text">✅ Approve ₹300</text>
+
+  <rect x="190" y="305" width="144" height="32" class="btn-reject" />
+  <text x="262" y="325" class="btn-text">❌ Reject Claim</text>
+
+  <!-- Row 2: Details -->
+  <rect x="46" y="343" width="288" height="28" class="btn" />
+  <text x="190" y="361" class="btn-text">🔍 View Deliberation Details</text>
+
+  <!-- Time -->
+  <text x="312" y="375" class="tg-sub" font-size="9px">17:42</text>
+
+  <!-- Footer input bar simulation -->
+  <rect x="22" y="435" width="336" height="41" fill="#17212B" />
+  <rect x="36" y="443" width="260" height="26" rx="13" fill="#242F3D" />
+  <text x="52" y="460" class="tg-sub">Message BharatRaksha Bot...</text>
+  <circle cx="328" cy="456" r="14" fill="#C93A1B" />
+  <path d="M 324 456 L 332 456 M 329 452 L 333 456 L 329 460" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
+</svg>

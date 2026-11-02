@@ -1,5 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import BharatRakshaHomePage from "@/app/page";
-
-export default BharatRakshaHomePage;
+export default function UpiLegacyRedirect() {
+  redirect("/dashboard");
+}

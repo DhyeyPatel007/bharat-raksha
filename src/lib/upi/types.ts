@@ -136,6 +136,8 @@ export interface UpiCase {
   order_telemetry?: UpiOrder;
   buyer_telemetry?: UpiCustomerRefundHistory;
   tracking_telemetry?: ShiprocketTrackingData | null;
+  origin_group_chat_id?: string | null;
+  intake_source?: string | null;
 }
 
 export interface UpiAuditLog {

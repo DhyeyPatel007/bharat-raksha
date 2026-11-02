@@ -8,6 +8,7 @@ import {
   registerMerchantChat,
   sendMerchantClaimAlert,
   sendTelegramReceipt,
+  type ExtractedTelegramClaimData,
   type TelegramWebhookPayload,
 } from "@/lib/upi/telegram";
 import { runUpiSwarm } from "@/lib/upi/jurors";
@@ -16,11 +17,14 @@ import {
   getAllUpiCases,
   getUpiCaseById,
   getUpiOrderByRrn,
+  getUpiOrderById,
   saveUpiCase,
+  saveUpiOrder,
 } from "@/lib/upi/store-db";
 import { evaluateUpiGuardrail } from "@/lib/upi/guardrail";
 import { executeCaseRefund } from "@/lib/upi/refund-service";
-import type { UpiCase } from "@/lib/upi/types";
+import { fetchPaymentByRRN } from "@/lib/upi/razorpay";
+import type { UpiCase, UpiOrder } from "@/lib/upi/types";
 
 export async function GET() {
   return NextResponse.json({
@@ -50,8 +54,8 @@ export async function POST(req: NextRequest) {
       const senderChatId = String(cb.message?.chat?.id || cb.from?.id || "").trim();
       const messageId = cb.message?.message_id;
 
-      // SECURITY INVARIANT: Only the registered merchant chat may approve/reject.
-      // Callbacks from any other chat are ignored silently.
+      // SECURITY INVARIANT (§2): Only the registered merchant chat may approve/reject.
+      // Callbacks from group members or any other chat are ignored silently.
       const registeredMerchantChatId = getMerchantChatId();
       if (!registeredMerchantChatId || senderChatId !== registeredMerchantChatId) {
         if (callbackQueryId) {
@@ -109,6 +113,15 @@ export async function POST(req: NextRequest) {
           if (callbackQueryId) {
             await answerTelegramCallback(callbackQueryId, `Approved: Refund ${refundId}`);
           }
+
+          // GROUP OUTCOME ANNOUNCEMENT (§2):
+          if (upiCase.origin_group_chat_id) {
+            await sendTelegramReceipt({
+              to: upiCase.origin_group_chat_id,
+              text: `Case *${targetCaseId}*: refund of *₹${refundInr}* approved and executed.`,
+            });
+          }
+
           return NextResponse.json({
             status: "ok",
             action: "approve",
@@ -159,11 +172,19 @@ export async function POST(req: NextRequest) {
         if (callbackQueryId) {
           await answerTelegramCallback(callbackQueryId, "Claim rejected");
         }
+
+        // GROUP OUTCOME ANNOUNCEMENT (§2):
+        if (upiCase.origin_group_chat_id) {
+          await sendTelegramReceipt({
+            to: upiCase.origin_group_chat_id,
+            text: `Case *${targetCaseId}*: claim rejected — evidence dossier retained.`,
+          });
+        }
+
         return NextResponse.json({ status: "ok", action: "reject", caseId: targetCaseId });
       }
 
       if (action === "details") {
-        // Send full case summary message (evidence, scores, juror verdicts)
         const jurorSummary = (upiCase.juror_reports || [])
           .map((j) => {
             const aiBadge =
@@ -209,7 +230,10 @@ export async function POST(req: NextRequest) {
     // 2. MERCHANT COMMANDS (/start, /status)
     // =========================================================================
     const incomingMsg = rawBody.message as
-      | { text?: string; chat?: { id: number | string; username?: string; first_name?: string } }
+      | {
+          text?: string;
+          chat?: { id: number | string; username?: string; first_name?: string; type?: string };
+        }
       | undefined;
     const msgText = (incomingMsg?.text || rawBody.text || "").trim();
     const msgChatId = String(incomingMsg?.chat?.id || rawBody.chatId || rawBody.senderId || "");
@@ -281,9 +305,9 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // 3. BUYER CLAIM INTAKE (Non-command text messages)
+    // 3. BUYER CLAIM INTAKE (Group or Direct DM)
     // =========================================================================
-    let claims = [];
+    let claims: ExtractedTelegramClaimData[] = [];
     if (rawBody.update_id !== undefined || incomingMsg?.chat) {
       claims = parseTelegramWebhook(rawBody as TelegramWebhookPayload);
     } else if (rawBody.message || rawBody.text) {
@@ -294,7 +318,7 @@ export async function POST(req: NextRequest) {
         extractTelegramClaimData(
           {
             message_id: Date.now(),
-            chat: { id: chatId, first_name: "Demo Buyer" },
+            chat: { id: chatId, first_name: "Demo Buyer", type: "private" },
             text,
             date: Math.floor(Date.now() / 1000),
           },
@@ -310,23 +334,141 @@ export async function POST(req: NextRequest) {
     const processedCases: UpiCase[] = [];
 
     for (const claim of claims) {
-      const rrn = claim.rrn || "631514892011";
-      const orderId = claim.orderId || "ORD-KRY-8801";
+      // -----------------------------------------------------------------------
+      // §1 RULE: MISSING RRN CHECK
+      // If RRN is missing entirely from the message, reply asking for RRN.
+      // Do NOT default to any case. Do NOT create a case.
+      // -----------------------------------------------------------------------
+      if (!claim.rrn) {
+        const askRrnText =
+          "Please provide your 12-digit UPI RRN (found in your UPI app's transaction details) along with the issue description so we can verify the payment.";
 
-      const order = await getUpiOrderByRrn(rrn);
-      const claimAmountPaise = order ? order.amount_paise : 320000;
+        await sendTelegramReceipt({
+          to: claim.chatId,
+          text: `⚠️ *UPI RRN Required*\n\n${askRrnText}`,
+        });
+
+        await addUpiAuditLog({
+          case_id: "UNMATCHED",
+          actor: claim.isGroup ? "TELEGRAM_GROUP_INTAKE" : "TELEGRAM_WEBHOOK",
+          action_type: "UNMATCHED_CLAIM",
+          tool_called: "order_lookup",
+          input_payload: {
+            rawMessage: claim.rawMessage,
+            senderId: claim.senderId,
+            chatId: claim.chatId,
+            reason: "MISSING_RRN",
+          },
+          output_payload: { status: "missing_rrn" },
+          guardrail_check: { pass: false, reason: "MISSING_RRN" },
+        });
+
+        return NextResponse.json(
+          {
+            status: "missing_rrn",
+            message: askRrnText,
+          },
+          { status: 200 }
+        );
+      }
+
+      const rrn = claim.rrn;
+
+      // -----------------------------------------------------------------------
+      // §1 RULE: ORDER_NOT_FOUND GUARD
+      // Look up in store AND via Razorpay lookup. If neither finds it:
+      // - Do NOT create a case
+      // - Do NOT run swarm
+      // - Do NOT alert merchant with Approve/Reject
+      // - Reply with not-found text
+      // - Log UNMATCHED_CLAIM audit entry
+      // -----------------------------------------------------------------------
+      let order: UpiOrder | null = await getUpiOrderByRrn(rrn);
+      if (!order && claim.orderId) {
+        order = await getUpiOrderById(claim.orderId);
+      }
+
+      if (!order) {
+        // Try live or emulator Razorpay lookup
+        const rzpLookup = await fetchPaymentByRRN(rrn, claim.orderId || undefined);
+        if (rzpLookup.payments && rzpLookup.payments.length > 0) {
+          const p = rzpLookup.payments[0];
+          order = {
+            order_id: p.order_id || claim.orderId || `ORD-${rrn.slice(-4)}`,
+            customer_phone: p.contact || "+919876543210",
+            customer_name: "Customer",
+            amount_paise: p.amount,
+            upi_rrn: rrn,
+            razorpay_payment_id: p.id,
+            razorpay_order_id: p.order_id || `ORD-${rrn.slice(-4)}`,
+            payment_status: p.status,
+            awb_code: null,
+            warehouse_weight_kg: null,
+            courier_weight_kg: null,
+            otp_verified: false,
+            created_at: new Date(p.created_at * 1000).toISOString(),
+          };
+          await saveUpiOrder(order);
+        }
+      }
+
+      if (!order) {
+        // ORDER NOT FOUND!
+        const notFoundText =
+          "We couldn't find a payment with this RRN / order ID. Please check the 12-digit UPI RRN from your payment app and try again.";
+
+        await sendTelegramReceipt({
+          to: claim.chatId,
+          text: `⚠️ *Payment Not Found*\n\n${notFoundText}`,
+        });
+
+        await addUpiAuditLog({
+          case_id: "UNMATCHED",
+          actor: claim.isGroup ? "TELEGRAM_GROUP_INTAKE" : "TELEGRAM_WEBHOOK",
+          action_type: "UNMATCHED_CLAIM",
+          tool_called: "order_lookup",
+          input_payload: {
+            rrn,
+            orderId: claim.orderId,
+            rawMessage: claim.rawMessage,
+            senderId: claim.senderId,
+            chatId: claim.chatId,
+          },
+          output_payload: { status: "order_not_found" },
+          guardrail_check: { pass: false, reason: "ORDER_NOT_FOUND" },
+        });
+
+        return NextResponse.json(
+          {
+            status: "order_not_found",
+            message: notFoundText,
+          },
+          { status: 200 }
+        );
+      }
+
+      // -----------------------------------------------------------------------
+      // §2 GROUP INTAKE ACKNOWLEDGEMENT
+      // If posted in a group, acknowledge briefly in the group
+      // -----------------------------------------------------------------------
+      if (claim.isGroup) {
+        await sendTelegramReceipt({
+          to: claim.chatId,
+          text: `🛡️ *Claim received* — checking payment, tracking and history for Order *${order.order_id}*…`,
+        });
+      }
 
       // Run Swarm evaluation
       const swarmResult = await runUpiSwarm({
-        orderId: order?.order_id || orderId,
+        orderId: order.order_id,
         rrn,
-        claimAmountPaise,
+        claimAmountPaise: order.amount_paise,
         buyerMessage: claim.rawMessage,
       });
 
       // Run Guardrail check
       const guardrail = evaluateUpiGuardrail({
-        paymentStatus: order ? order.payment_status : "captured",
+        paymentStatus: order.payment_status,
         verdict: swarmResult.verdict,
         recommendedRefundPaise: swarmResult.recommendedRefundPaise,
       });
@@ -344,9 +486,9 @@ export async function POST(req: NextRequest) {
 
       const updatedCase: UpiCase = {
         case_id: caseId,
-        order_id: order?.order_id || orderId,
+        order_id: order.order_id,
         upi_rrn: rrn,
-        claim_amount_paise: claimAmountPaise,
+        claim_amount_paise: order.amount_paise,
         recommended_refund_paise: swarmResult.recommendedRefundPaise,
         claim_type:
           swarmResult.verdict === "APPROVE_REFUND"
@@ -377,16 +519,18 @@ export async function POST(req: NextRequest) {
         iteration_logs: swarmResult.iterationLogs,
         created_at: existingCase?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        origin_group_chat_id: claim.isGroup ? claim.chatId : null,
+        intake_source: claim.isGroup ? "TELEGRAM_GROUP" : "TELEGRAM_BOT",
       };
 
       await saveUpiCase(updatedCase);
 
       await addUpiAuditLog({
         case_id: caseId,
-        actor: "TELEGRAM_WEBHOOK",
+        actor: claim.isGroup ? "TELEGRAM_GROUP_INTAKE" : "TELEGRAM_WEBHOOK",
         action_type: "BUYER_CLAIM_INGESTED",
-        tool_called: "phalanx_telegram_intake",
-        input_payload: { rawMessage: claim.rawMessage, rrn, orderId, senderId: claim.senderId },
+        tool_called: "bharatraksha_telegram_intake",
+        input_payload: { rawMessage: claim.rawMessage, rrn, orderId: order.order_id, senderId: claim.senderId },
         output_payload: {
           verdict: swarmResult.verdict,
           score: swarmResult.score,
@@ -395,27 +539,29 @@ export async function POST(req: NextRequest) {
         guardrail_check: { ...guardrail },
       });
 
-      // Outbound Telegram reply to buyer
-      let buyerReply = "";
-      if (swarmResult.verdict === "REJECT_CLAIM") {
-        buyerReply = `🛡️ *BharatRaksha Defense Dossier*\n\nYour claim regarding Order *${orderId}* (RRN \`${rrn}\`) was evaluated against bank settlement and courier weight telemetry.\n\n❌ *Verdict: Claim Rejected*\nDoorstep OTP delivery confirmed and weight matched dispatch certificate.`;
-      } else if (swarmResult.verdict === "OFFER_PARTIAL") {
-        buyerReply = `🛡️ *BharatRaksha Claim Resolution*\n\nRegarding Order *${orderId}*: Cosmetic damage noted. A goodwill partial resolution of *₹${(
-          swarmResult.recommendedRefundPaise / 100
-        ).toFixed(2)}* has been submitted for merchant operator sign-off.`;
-      } else {
-        buyerReply = `🛡️ *BharatRaksha Refund Notice*\n\nOrder *${orderId}* was confirmed stalled in transit. Full refund of *₹${(
-          swarmResult.recommendedRefundPaise / 100
-        ).toFixed(2)}* is awaiting operator approval and will be settled via UPI upon confirmation.`;
+      // OUTBOUND TELEGRAM REPLY (Direct DM only, never expose details in group)
+      if (!claim.isGroup) {
+        let buyerReply = "";
+        if (swarmResult.verdict === "REJECT_CLAIM") {
+          buyerReply = `🛡️ *BharatRaksha Defense Dossier*\n\nYour claim regarding Order *${order.order_id}* (RRN \`${rrn}\`) was evaluated against bank settlement and courier weight telemetry.\n\n❌ *Verdict: Claim Rejected*\nDoorstep OTP delivery confirmed and weight matched dispatch certificate.`;
+        } else if (swarmResult.verdict === "OFFER_PARTIAL") {
+          buyerReply = `🛡️ *BharatRaksha Claim Resolution*\n\nRegarding Order *${order.order_id}*: Cosmetic damage noted. A goodwill partial resolution of *₹${(
+            swarmResult.recommendedRefundPaise / 100
+          ).toFixed(2)}* has been submitted for merchant operator sign-off.`;
+        } else {
+          buyerReply = `🛡️ *BharatRaksha Refund Notice*\n\nOrder *${order.order_id}* was confirmed stalled in transit. Full refund of *₹${(
+            swarmResult.recommendedRefundPaise / 100
+          ).toFixed(2)}* is awaiting operator approval and will be settled via UPI upon confirmation.`;
+        }
+
+        await sendTelegramReceipt({
+          to: claim.senderId,
+          text: buyerReply,
+        });
       }
 
-      await sendTelegramReceipt({
-        to: claim.senderId,
-        text: buyerReply,
-      });
-
       // OUTBOUND MERCHANT ALERT (§2):
-      // Send interactive alert with [Approve] [Reject] [Details] to registered merchant chat
+      // Send interactive alert with [Approve] [Reject] [Details] to registered merchant DM
       await sendMerchantClaimAlert(updatedCase);
 
       processedCases.push(updatedCase);

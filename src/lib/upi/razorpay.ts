@@ -60,6 +60,8 @@ export async function fetchPaymentById(
       if (res.ok) {
         const json = (await res.json()) as RazorpayPaymentItem;
         return { payment: json, source: "LIVE_API" };
+      } else if (res.status === 404) {
+        return { payment: null, source: "LIVE_API" };
       }
     } catch {
       // fallback cleanly to emulator
@@ -67,6 +69,15 @@ export async function fetchPaymentById(
   }
 
   // Fallback emulator based on test paymentId patterns
+  if (
+    paymentId.includes("unknown") ||
+    paymentId.includes("notfound") ||
+    paymentId.includes("fake") ||
+    paymentId.includes("404")
+  ) {
+    return { payment: null, source: "RAZORPAY_SANDBOX_FALLBACK" };
+  }
+
   const status: UpiPaymentStatus = paymentId.includes("A02") || paymentId.includes("D01")
     ? "failed"
     : "captured";

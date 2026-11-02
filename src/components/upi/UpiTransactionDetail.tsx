@@ -161,7 +161,7 @@ export default function UpiTransactionDetail({ initialCase, auditLogs }: Props) 
       {/* Top back navigation */}
       <div style={{ marginBottom: "20px" }}>
         <Link
-          href="/upi"
+          href="/dashboard"
           style={{
             display: "inline-flex",
             alignItems: "center",

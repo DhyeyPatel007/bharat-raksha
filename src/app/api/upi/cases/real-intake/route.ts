@@ -38,8 +38,20 @@ export async function POST(req: NextRequest) {
     const { payment, source } = await fetchPaymentById(paymentId);
 
     if (!payment) {
+      await addUpiAuditLog({
+        case_id: "UNMATCHED",
+        actor: "REAL_MODE_INTAKE",
+        action_type: "UNMATCHED_CLAIM",
+        tool_called: "order_lookup",
+        input_payload: { paymentId, rrn, claimType, buyerMessage },
+        output_payload: { status: "order_not_found" },
+        guardrail_check: { pass: false, reason: "ORDER_NOT_FOUND" },
+      });
       return NextResponse.json(
-        { error: `Payment ${paymentId} could not be retrieved from Razorpay or emulator.` },
+        {
+          status: "order_not_found",
+          error: "We couldn't find a payment with this RRN / order ID. Please check the 12-digit UPI RRN from your payment app and try again.",
+        },
         { status: 404 }
       );
     }

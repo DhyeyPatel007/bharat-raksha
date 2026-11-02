@@ -368,7 +368,7 @@ export default function UpiTransactionList({ cases, onCaseUpdated }: Props) {
 
                 {/* View Dossier Link */}
                 <Link
-                  href={`/upi/${c.case_id}`}
+                  href={`/dashboard/${c.case_id}`}
                   style={{
                     padding: "8px 14px",
                     borderRadius: "8px",

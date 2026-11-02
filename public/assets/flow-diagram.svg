@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280" width="100%" height="100%" fill="none">
+  <defs>
+    <style>
+      .bg { fill: #FBF9F5; stroke: #E6DFD5; stroke-width: 1.5; }
+      .num { font-family: 'Instrument Serif', Georgia, serif; font-size: 28px; fill: #C93A1B; font-weight: bold; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 16px; font-weight: 700; fill: #1A1A1A; }
+      .desc { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #5A554E; line-height: 1.5; }
+      .arrow { stroke: #C93A1B; stroke-width: 2; stroke-dasharray: 4 4; }
+      .pill { fill: #F4EBE1; stroke: #DECFC0; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#C93A1B" />
+    </marker>
+  </defs>
+
+  <!-- Step 1 -->
+  <rect x="20" y="20" width="260" height="240" rx="8" class="bg" />
+  <circle cx="56" cy="56" r="22" class="pill" />
+  <text x="50" y="65" class="num">01</text>
+  <text x="92" y="52" class="title">Buyer Ingest</text>
+  <text x="92" y="70" font-family="sans-serif" font-size="11px" fill="#8C8275" font-weight="600">MULTICHANNEL INTAKE</text>
+  <text x="40" y="112" class="desc">
+    <tspan x="40" dy="0">• Telegram Merchant Group</tspan>
+    <tspan x="40" dy="24">• Buyer Support Bot DM</tspan>
+    <tspan x="40" dy="24">• Web Portal (/raise-issue)</tspan>
+    <tspan x="40" dy="24">• Strict 12-digit RRN validation</tspan>
+    <tspan x="40" dy="24">• ORDER_NOT_FOUND guard</tspan>
+  </text>
+
+  <!-- Arrow 1 to 2 -->
+  <path d="M 285 140 L 325 140" class="arrow" marker-end="url(#arrowhead)" />
+
+  <!-- Step 2 -->
+  <rect x="330" y="20" width="260" height="240" rx="8" class="bg" />
+  <circle cx="366" cy="56" r="22" class="pill" />
+  <text x="358" y="65" class="num">02</text>
+  <text x="402" y="52" class="title">Swarm Forensics</text>
+  <text x="402" y="70" font-family="sans-serif" font-size="11px" fill="#8C8275" font-weight="600">3-JUROR LLM AUDIT</text>
+  <text x="350" y="112" class="desc">
+    <tspan x="350" dy="0">• Juror 1: Razorpay RRN State</tspan>
+    <tspan x="350" dy="24">• Juror 2: Shiprocket Scale &amp; OTP</tspan>
+    <tspan x="350" dy="24">• Juror 3: Buyer Abuse History</tspan>
+    <tspan x="350" dy="24">• Qwen 30B via Token Factory</tspan>
+    <tspan x="350" dy="24">• Hare-Niemeyer Score Math</tspan>
+  </text>
+
+  <!-- Arrow 2 to 3 -->
+  <path d="M 595 140 L 635 140" class="arrow" marker-end="url(#arrowhead)" />
+
+  <!-- Step 3 -->
+  <rect x="640" y="20" width="240" height="240" rx="8" class="bg" />
+  <circle cx="676" cy="56" r="22" class="pill" />
+  <text x="668" y="65" class="num">03</text>
+  <text x="712" y="52" class="title">Merchant Gate</text>
+  <text x="712" y="70" font-family="sans-serif" font-size="11px" fill="#8C8275" font-weight="600">HUMAN APPROVAL</text>
+  <text x="660" y="112" class="desc">
+    <tspan x="660" dy="0">• 1-Tap Approve / Reject</tspan>
+    <tspan x="660" dy="24">• Telegram Bot DM Alert</tspan>
+    <tspan x="660" dy="24">• Zero Silent Auto-Refunds</tspan>
+    <tspan x="660" dy="24">• Live Razorpay Settlement</tspan>
+    <tspan x="660" dy="24">• NCH Evidence Dossier PDF</tspan>
+  </text>
+</svg>

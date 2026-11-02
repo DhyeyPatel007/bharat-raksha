@@ -9,6 +9,9 @@ import type { UpiCase } from "./types";
 export interface ExtractedTelegramClaimData {
   senderId: string;
   senderName?: string;
+  chatId: string;
+  chatType: "private" | "group" | "supergroup" | string;
+  isGroup: boolean;
   rawMessage: string;
   rrn: string | null;
   orderId: string | null;
@@ -132,11 +135,14 @@ export function extractTelegramClaimData(
   senderIdOverride?: string
 ): ExtractedTelegramClaimData {
   const text = message.text || "";
+  const chatId = String(message.chat?.id || message.from?.id || "telegram_user");
+  const chatType = message.chat?.type || "private";
+  const isGroup = chatType === "group" || chatType === "supergroup";
   const senderId =
     senderIdOverride ||
-    String(message.chat?.id || message.from?.id || "telegram_user");
+    String(message.from?.id || message.chat?.id || "telegram_user");
   const senderName =
-    message.from?.first_name || message.from?.username || "Telegram User";
+    message.from?.first_name || message.from?.username || message.chat?.first_name || "Telegram User";
 
   // Regex rules:
   // 12-digit UPI RRN
@@ -150,6 +156,9 @@ export function extractTelegramClaimData(
   return {
     senderId,
     senderName,
+    chatId,
+    chatType,
+    isGroup,
     rawMessage: text,
     rrn,
     orderId,

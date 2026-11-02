@@ -1,898 +1,948 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import LanguageToggle from "@/components/upi/LanguageToggle";
-import UpiTransactionList from "@/components/upi/UpiTransactionList";
 import { useLanguage } from "@/lib/i18n";
-import type { UpiCase } from "@/lib/upi/types";
 
-export default function BharatRakshaHomePage() {
-  const { t, language } = useLanguage();
-  const [cases, setCases] = useState<UpiCase[]>([]);
-  const [metrics, setMetrics] = useState({
-    totalClaims: 0,
-    autoResolvedCount: 0,
-    humanLockedCount: 0,
-    fraudPreventedPaise: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [resetting, setResetting] = useState(false);
-
-  // Telegram Simulator State
-  const [telegramDrawerOpen, setTelegramDrawerOpen] = useState(false);
-  const [simChatId, setSimChatId] = useState("9820199482");
-  const [simMessage, setSimMessage] = useState("");
-  const [simSubmitting, setSimSubmitting] = useState(false);
-  const [simResponse, setSimResponse] = useState<string | null>(null);
-
-  // Real Payment Intake Modal/Drawer State
-  const [realIntakeOpen, setRealIntakeOpen] = useState(false);
-  const [realPaymentId, setRealPaymentId] = useState("");
-  const [realRrn, setRealRrn] = useState("");
-  const [realClaimType, setRealClaimType] = useState("DAMAGED_ITEM");
-  const [realMessage, setRealMessage] = useState("");
-  const [realSubmitting, setRealSubmitting] = useState(false);
-  const [realFeedback, setRealFeedback] = useState<{ success: boolean; message: string; source?: string } | null>(null);
-
-  const fetchCases = async () => {
-    try {
-      const res = await fetch("/api/upi/cases");
-      if (res.ok) {
-        const data = await res.json();
-        setCases(data.cases || []);
-        if (data.metrics) setMetrics(data.metrics);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCases();
-  }, []);
-
-  const handleResetDemo = async () => {
-    setResetting(true);
-    try {
-      const res = await fetch("/api/upi/cases", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reset" }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCases(data.cases || []);
-        await fetchCases();
-      }
-    } catch {
-      // ignore
-    } finally {
-      setResetting(false);
-    }
-  };
-
-  const handleCaseUpdated = (updated: UpiCase) => {
-    setCases((prev) =>
-      prev.map((c) => (c.case_id === updated.case_id ? updated : c))
-    );
-    fetchCases();
-  };
-
-  const runTelegramSimulation = async (text: string, chatId = "9820199482") => {
-    setSimSubmitting(true);
-    setSimResponse(null);
-    try {
-      const res = await fetch("/api/upi/webhooks/telegram", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          chatId,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSimResponse(
-          language === "hi"
-            ? `सफलतापूर्वक टेलीग्राम बॉट पर सिमुलेट किया गया! ${data.processedCount || 1} दावा प्रसंस्कृत हुआ।`
-            : `Telegram Bot Intake success! Processed ${data.processedCount || 1} claim.`
-        );
-        await fetchCases();
-      } else {
-        setSimResponse(`Error: ${data.error || "Simulation failed"}`);
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setSimResponse(`Error: ${msg}`);
-    } finally {
-      setSimSubmitting(false);
-    }
-  };
-
-  const handleRealModeIntake = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setRealSubmitting(true);
-    setRealFeedback(null);
-
-    try {
-      const res = await fetch("/api/upi/cases/real-intake", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentId: realPaymentId,
-          rrn: realRrn,
-          claimType: realClaimType,
-          buyerMessage: realMessage,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to ingest real payment");
-      }
-
-      setRealFeedback({
-        success: true,
-        source: data.source,
-        message:
-          language === "hi"
-            ? `भुगतान ${data.case?.order_id} (${data.source === "LIVE_API" ? "लाइव रेज़रपे" : "सैंडबॉक्स एमुलेटर"}) से सफलतापूर्वक दर्ज किया गया!`
-            : `Payment ${data.case?.order_id} ingested successfully via ${data.source === "LIVE_API" ? "Live Razorpay API" : "Sandbox Emulator"}!`,
-      });
-
-      setRealPaymentId("");
-      setRealRrn("");
-      setRealMessage("");
-      await fetchCases();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setRealFeedback({ success: false, message: msg });
-    } finally {
-      setRealSubmitting(false);
-    }
-  };
-
-  const fraudPreventedInr = (metrics.fraudPreventedPaise / 100).toLocaleString("en-IN", {
-    maximumFractionDigits: 0,
-  });
+export default function BharatRakshaLandingPage() {
+  const { language } = useLanguage();
+  const isHi = language === "hi";
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f8fafc",
-        color: "#0f172a",
+        backgroundColor: "#F7F3EA",
+        color: "#1A1A1A",
         fontFamily: "var(--font-sans, system-ui, sans-serif)",
+        lineHeight: 1.6,
       }}
     >
-      {/* 1. TOP GLOBAL NAVIGATION (100% BharatRaksha — No PayPal) */}
+      {/* 1. TOP EDITORIAL NAVIGATION */}
       <header
         style={{
-          borderBottom: "1px solid #e2e8f0",
-          backgroundColor: "#ffffff",
+          borderBottom: "1px solid #E6DFD5",
+          backgroundColor: "#F7F3EA",
           position: "sticky",
           top: 0,
           zIndex: 50,
-          padding: "14px 24px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          padding: "16px 32px",
         }}
       >
         <div
           style={{
-            maxWidth: "1200px",
+            maxWidth: "1240px",
             margin: "0 auto",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             flexWrap: "wrap",
-            gap: "14px",
+            gap: "16px",
           }}
         >
-          {/* Logo & Subtitle */}
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "20px", fontWeight: 900, letterSpacing: "-0.5px", color: "#0f172a" }}>
-                🛡️ BharatRaksha <span style={{ fontWeight: 400, color: "#64748b", fontSize: "16px" }}>(भारत रक्षा)</span>
-              </span>
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  backgroundColor: "#ecfdf5",
-                  color: "#059669",
-                  padding: "3px 9px",
-                  borderRadius: "14px",
-                  border: "1px solid #a7f3d0",
-                }}
-              >
-                LIVE SHIELD
-              </span>
-            </div>
-            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
-              {language === "hi"
-                ? "भारतीय D2C विक्रेताओं के लिए स्वायत्त यूपीआई रिफंड एवं दावा सुरक्षा ढाल"
-                : "Autonomous Refund & Claim Adjudication Shield for Indian D2C Brands"}
-            </div>
-          </div>
-
-          {/* Right Action Cluster */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-            {/* New Case from Real Payment Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setRealIntakeOpen(!realIntakeOpen);
-                if (telegramDrawerOpen) setTelegramDrawerOpen(false);
-              }}
+          {/* Logo & Identity */}
+          <Link
+            href="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <span
               style={{
-                fontSize: "12px",
+                fontFamily: "var(--font-serif, Georgia, serif)",
+                fontSize: "26px",
                 fontWeight: 700,
-                padding: "7px 14px",
-                borderRadius: "8px",
-                border: "1px solid #cbd5e1",
-                backgroundColor: realIntakeOpen ? "#eff6ff" : "#ffffff",
-                color: realIntakeOpen ? "#1d4ed8" : "#0f172a",
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
+                letterSpacing: "-0.03em",
+                color: "#1A1A1A",
               }}
             >
-              <span>💳</span>
-              <span>{t.real_payment_intake}</span>
-            </button>
-
-            {/* Telegram Intake Simulator Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                setTelegramDrawerOpen(!telegramDrawerOpen);
-                if (realIntakeOpen) setRealIntakeOpen(false);
-              }}
+              BharatRaksha
+            </span>
+            <span
               style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                padding: "7px 14px",
-                borderRadius: "8px",
-                border: "1px solid #cbd5e1",
-                backgroundColor: telegramDrawerOpen ? "#f0fdf4" : "#ffffff",
-                color: telegramDrawerOpen ? "#15803d" : "#0f172a",
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
+                fontSize: "15px",
+                color: "#755E46",
+                fontWeight: 500,
               }}
             >
-              <span>✈️</span>
-              <span>{language === "hi" ? "टेलीग्राम बॉट इनटेक" : "Telegram Bot Intake"}</span>
-            </button>
-
-            {/* 1-Click Demo Reset Button */}
-            <button
-              type="button"
-              onClick={handleResetDemo}
-              disabled={resetting}
+              (भारत रक्षा)
+            </span>
+            <span
               style={{
-                fontSize: "12px",
+                fontSize: "11px",
+                fontWeight: 700,
+                backgroundColor: "#FBEAE7",
+                color: "#C93A1B",
+                padding: "2px 8px",
+                borderRadius: "4px",
+                border: "1px solid #F5CCC4",
+                letterSpacing: "0.05em",
+              }}
+            >
+              UPI SHIELD
+            </span>
+          </Link>
+
+          {/* Navigation Links & Actions */}
+          <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
+            <Link
+              href="/how-to-use"
+              style={{
+                fontSize: "13px",
                 fontWeight: 600,
-                padding: "7px 12px",
-                borderRadius: "8px",
-                border: "1px solid #cbd5e1",
-                backgroundColor: "#ffffff",
-                color: "#475569",
-                cursor: resetting ? "not-allowed" : "pointer",
+                color: "#4B463E",
+                textDecoration: "none",
               }}
-              title="Reset seeded test cases to clean starting state"
             >
-              {resetting ? "Resetting..." : `🔄 ${t.reset_demo}`}
-            </button>
-
-            {/* Language Toggle (EN / हिंदी) */}
+              {isHi ? "उपयोग निर्देश" : "How it Works"}
+            </Link>
+            <Link
+              href="/terms"
+              style={{
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#4B463E",
+                textDecoration: "none",
+              }}
+            >
+              {isHi ? "शर्तें एवं नियम" : "Terms"}
+            </Link>
+            <Link
+              href="/raise-issue"
+              style={{
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#C93A1B",
+                textDecoration: "none",
+              }}
+            >
+              {isHi ? "शिकायत दर्ज करें" : "Raise an Issue"}
+            </Link>
+            <Link
+              href="/dashboard"
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                backgroundColor: "#C93A1B",
+                color: "#FFFFFF",
+                padding: "8px 18px",
+                borderRadius: "6px",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              <span>{isHi ? "डैशबोर्ड खोलें" : "Open Dashboard"}</span>
+              <span>→</span>
+            </Link>
             <LanguageToggle />
           </div>
         </div>
       </header>
 
-      {/* 2. SUB-HEADER: TELEMETRY BAR */}
-      <div
+      {/* 2. HERO SECTION — EDITORIAL SERIF & VERMILION ACCENT */}
+      <section
         style={{
-          backgroundColor: "#f1f5f9",
-          borderBottom: "1px solid #e2e8f0",
-          padding: "7px 24px",
-          fontSize: "11px",
-          color: "#475569",
+          maxWidth: "1240px",
+          margin: "0 auto",
+          padding: "72px 32px 56px 32px",
         }}
       >
-        <div
-          style={{
-            maxWidth: "1200px",
-            margin: "0 auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "8px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <span style={{ display: "inline-block", width: "7px", height: "7px", borderRadius: "50%", backgroundColor: "#10b981" }} />
-            <strong>{language === "hi" ? "सिस्टम टेलीमेट्री स्थिति" : "System Telemetry Status"}:</strong>
-            <span>Razorpay: <code style={{ color: "#0f172a", fontWeight: 700 }}>rzp_test_* active</code></span>
-            <span>•</span>
-            <span>Shiprocket: <code style={{ color: "#0f172a", fontWeight: 700 }}>AWB Telemetry Active</code></span>
-            <span>•</span>
-            <span>Intake: <code style={{ color: "#0f172a", fontWeight: 700 }}>Telegram Bot API Gateway</code></span>
-            <span>•</span>
-            <span>Auto-Refund Ceiling: <code style={{ color: "#0f172a", fontWeight: 700 }}>₹0 (Approval Required)</code></span>
-          </div>
-
-          <div style={{ fontSize: "11px", color: "#64748b" }}>
-            {language === "hi"
-              ? "सटीक स्कोरिंग • एलएलएम जूरी विश्लेषण • प्रत्येक रिफंड से पहले मानवीय स्वीकृति"
-              : "Deterministic scoring • LLM juror reasoning • Human approval before every refund"}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. REAL-MODE INTAKE DRAWER (NEW CASE FROM REAL PAYMENT) */}
-      {realIntakeOpen && (
-        <div
-          style={{
-            backgroundColor: "#ffffff",
-            borderBottom: "2px solid #2563eb",
-            padding: "24px",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-              <div>
-                <div style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a" }}>
-                  💳 {language === "hi" ? "वास्तविक रेज़रपे भुगतान से नया मामला दर्ज करें" : "New Case from Real Razorpay Payment"}
-                </div>
-                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
-                  {language === "hi"
-                    ? "एक वास्तविक रेज़रपे टेस्ट-मोड भुगतान आईडी (pay_...) और १२-अंकीय यूपीआई आरआरएन दर्ज करें। ऐप सीधे रेज़रपे एपीआई से लाइव विवरण प्राप्त करेगा।"
-                    : "Paste a real Razorpay test-mode payment ID (pay_...) and 12-digit UPI RRN. BharatRaksha fetches that payment live from Razorpay API using keys from .env.local."}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setRealIntakeOpen(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "14px",
-                  color: "#64748b",
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleRealModeIntake}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                  gap: "14px",
-                  marginBottom: "14px",
-                }}
-              >
-                <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
-                    Razorpay Payment ID (pay_...) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. pay_UpiTestCaseA01 or pay_Qx12Ab89..."
-                    value={realPaymentId}
-                    onChange={(e) => setRealPaymentId(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "13px",
-                      fontFamily: "var(--font-mono, monospace)",
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
-                    UPI RRN (12 Digits) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={12}
-                    placeholder="e.g. 631514892011"
-                    value={realRrn}
-                    onChange={(e) => setRealRrn(e.target.value.replace(/\D/g, ""))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "13px",
-                      fontFamily: "var(--font-mono, monospace)",
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
-                    Claim Category
-                  </label>
-                  <select
-                    value={realClaimType}
-                    onChange={(e) => setRealClaimType(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "13px",
-                      backgroundColor: "#ffffff",
-                    }}
-                  >
-                    <option value="DAMAGED_ITEM">DAMAGED_ITEM (Cosmetic or physical scuff)</option>
-                    <option value="LOST_IN_TRANSIT">LOST_IN_TRANSIT (Courier delay over 7 days)</option>
-                    <option value="EMPTY_BOX">EMPTY_BOX (Weight fraud allegations)</option>
-                    <option value="DOUBLE_DEBIT">DOUBLE_DEBIT (Duplicate deduction claim)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "4px" }}>
-                  Customer Narrative / Complaint
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Received package but item has a scratch on front panel. Requesting refund."
-                  value={realMessage}
-                  onChange={(e) => setRealMessage(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
-                    fontSize: "13px",
-                  }}
-                />
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
-                <div style={{ fontSize: "11px", color: "#64748b" }}>
-                  🔒 Live sandbox safe: Only <code>rzp_test_*</code> keys accepted. Never calls live production money rails.
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={realSubmitting || !realPaymentId || !realRrn}
-                  style={{
-                    padding: "9px 20px",
-                    borderRadius: "8px",
-                    backgroundColor: "#2563eb",
-                    color: "#ffffff",
-                    border: "none",
-                    fontWeight: 700,
-                    fontSize: "13px",
-                    cursor: realSubmitting || !realPaymentId || !realRrn ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {realSubmitting ? "Fetching from Razorpay..." : "Fetch & Ingest Live Payment"}
-                </button>
-              </div>
-            </form>
-
-            {realFeedback && (
-              <div
-                style={{
-                  marginTop: "14px",
-                  padding: "10px 14px",
-                  borderRadius: "8px",
-                  backgroundColor: realFeedback.success ? "#ecfdf5" : "#fff1f2",
-                  border: `1px solid ${realFeedback.success ? "#a7f3d0" : "#fecdd3"}`,
-                  color: realFeedback.success ? "#059669" : "#e11d48",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                }}
-              >
-                {realFeedback.message}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 4. TELEGRAM BOT INTAKE SIMULATOR DRAWER */}
-      {telegramDrawerOpen && (
-        <div
-          style={{
-            backgroundColor: "#ffffff",
-            borderBottom: "2px solid #16a34a",
-            padding: "24px",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-              <div>
-                <div style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a" }}>
-                  ✈️ {language === "hi" ? "टेलीग्राम बॉट इनटेक सिम्युलेटर" : "Telegram Bot Intake Simulator"}
-                </div>
-                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
-                  {language === "hi"
-                    ? "टेलीग्राम बॉट वेबहुक (/api/upi/webhooks/telegram) पर आने वाले ग्राहक दावों का अनुकरण करें। मुफ्त, त्वरित और व्यावसायिक सत्यापन की आवश्यकता नहीं।"
-                    : "Simulate incoming buyer claims via Telegram Bot API webhook (/api/upi/webhooks/telegram). Free, instant setup with BotFather without business verification."}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setTelegramDrawerOpen(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "14px",
-                  color: "#64748b",
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Quick 1-Click Simulation Buttons */}
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px" }}>
-              <button
-                type="button"
-                disabled={simSubmitting}
-                onClick={() =>
-                  runTelegramSimulation(
-                    "₹3,200 debited twice from my GPay (RRN 631514892011) and the box delivered today was completely empty! Refund ₹3,200 immediately or I'm posting online!",
-                    "9820199482"
-                  )
-                }
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  border: "1px solid #cbd5e1",
-                  backgroundColor: "#f8fafc",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                🔴 {t.sim_case_a_btn}
-              </button>
-
-              <button
-                type="button"
-                disabled={simSubmitting}
-                onClick={() =>
-                  runTelegramSimulation(
-                    "Received my order ORD-KRY-8802 (RRN 631518440293) paid ₹1,200 via PhonePe, but there is a scratch on the side panel. I want a full ₹1,200 refund.",
-                    "9845102931"
-                  )
-                }
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  border: "1px solid #cbd5e1",
-                  backgroundColor: "#f8fafc",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                🟢 {t.sim_case_b_btn}
-              </button>
-
-              <button
-                type="button"
-                disabled={simSubmitting}
-                onClick={() =>
-                  runTelegramSimulation(
-                    "Order ORD-KRY-8803, paid ₹2,499 via UPI (RRN 631519773104) 9 days ago. Tracking hasn't moved in a week. Please refund my ₹2,499.",
-                    "9811204859"
-                  )
-                }
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  border: "1px solid #cbd5e1",
-                  backgroundColor: "#f8fafc",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                🟡 {t.sim_case_c_btn}
-              </button>
-
-              {/* FAILED PAYMENT GUARDRAIL TEST */}
-              <button
-                type="button"
-                disabled={simSubmitting}
-                onClick={() =>
-                  runTelegramSimulation(
-                    "Hey my payment failed but ₹1,500 was cut from UPI RRN 631510009988 for ORD-KRY-8804. Refund my ₹1,500 now!",
-                    "9899112233"
-                  )
-                }
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  border: "1px solid #fecdd3",
-                  backgroundColor: "#fff1f2",
-                  color: "#e11d48",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                🛡️ {t.sim_case_failed_btn}
-              </button>
-            </div>
-
-            {/* Custom Telegram Message Input */}
-            <div style={{ display: "flex", gap: "10px", alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: "280px" }}>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#64748b", marginBottom: "4px" }}>
-                  {language === "hi" ? "कस्टम टेलीग्राम संदेश (RRN एवं Order ID सहित)" : "Custom Telegram Message (Include 12-digit RRN & Order ID)"}
-                </label>
-                <input
-                  type="text"
-                  value={simMessage}
-                  onChange={(e) => setSimMessage(e.target.value)}
-                  placeholder="e.g. Order ORD-KRY-8802 RRN 631518440293 item damaged, refund me"
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
-                    fontSize: "13px",
-                  }}
-                />
-              </div>
-
-              <div style={{ width: "160px" }}>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#64748b", marginBottom: "4px" }}>
-                  Telegram User ID / Phone
-                </label>
-                <input
-                  type="text"
-                  value={simChatId}
-                  onChange={(e) => setSimChatId(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    border: "1px solid #cbd5e1",
-                    fontSize: "13px",
-                  }}
-                />
-              </div>
-
-              <button
-                type="button"
-                disabled={simSubmitting || !simMessage}
-                onClick={() => runTelegramSimulation(simMessage, simChatId)}
-                style={{
-                  padding: "8px 18px",
-                  borderRadius: "8px",
-                  backgroundColor: "#16a34a",
-                  color: "#ffffff",
-                  border: "none",
-                  fontWeight: 700,
-                  fontSize: "13px",
-                  cursor: simSubmitting || !simMessage ? "not-allowed" : "pointer",
-                }}
-              >
-                {simSubmitting ? "Sending..." : t.send_telegram_message}
-              </button>
-            </div>
-
-            {simResponse && (
-              <div style={{ marginTop: "12px", fontSize: "12px", fontWeight: 600, color: "#16a34a" }}>
-                ✓ {simResponse}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 5. MAIN CONTAINER */}
-      <main style={{ maxWidth: "1200px", margin: "32px auto", padding: "0 24px" }}>
-        {/* HERO SECTION */}
-        <section
-          style={{
-            backgroundColor: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: "18px",
-            padding: "36px 32px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-            marginBottom: "32px",
-          }}
-        >
-          <div style={{ display: "inline-block", fontSize: "12px", fontWeight: 700, color: "#2563eb", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            {language === "hi" ? "स्वायत्त यूपीआई रिफंड एवं दावा सुरक्षा ढाल" : "Autonomous UPI Dispute & Claim Defense Shield"}
-          </div>
-
-          <h1
+        <div style={{ maxWidth: "860px" }}>
+          {/* Accent Pill */}
+          <div
             style={{
-              fontSize: "32px",
-              fontWeight: 900,
-              color: "#0f172a",
-              letterSpacing: "-1px",
-              margin: "0 0 12px 0",
-              lineHeight: 1.25,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 14px",
+              backgroundColor: "#F4EBE1",
+              border: "1px solid #DECFC0",
+              borderRadius: "4px",
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#755E46",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              marginBottom: "24px",
             }}
           >
-            {language === "hi" ? (
+            <span style={{ color: "#C93A1B" }}>●</span>
+            <span>
+              {isHi
+                ? "भारतीय D2C विक्रेताओं के लिए स्वायत्त यूपीआई दावा ढाल"
+                : "Autonomous Refund & Claim Shield for Indian D2C Merchants"}
+            </span>
+          </div>
+
+          {/* Main Headline */}
+          <h1
+            style={{
+              fontFamily: "var(--font-serif, Georgia, serif)",
+              fontSize: "clamp(42px, 5.5vw, 68px)",
+              fontWeight: 400,
+              lineHeight: 1.08,
+              letterSpacing: "-0.03em",
+              color: "#1A1A1A",
+              margin: "0 0 24px 0",
+            }}
+          >
+            {isHi ? (
               <>
-                यूपीआई रिफंड से पहले मर्चेंट की सुरक्षा।{" "}
-                <span style={{ color: "#64748b", fontWeight: 600 }}>
-                  फॉरेंसिक साक्ष्य, ३-जूरी ऑडिट, एवं अनिवार्य मानवीय स्वीकृति गेट।
-                </span>
+                फर्जी यूपीआई रिफंड दावों पर <span style={{ color: "#C93A1B" }}>पैसा गवाना</span> बंद करें।
               </>
             ) : (
               <>
-                Disputes defended before UPI refunds bleed your store.{" "}
-                <span style={{ color: "#64748b", fontWeight: 600 }}>
-                  Forensic proof, 3-juror audit, and mandatory human approval gate.
-                </span>
+                Stop bleeding money on <span style={{ color: "#C93A1B" }}>fraudulent UPI refund claims</span>.
               </>
             )}
           </h1>
 
+          {/* Subtitle */}
           <p
             style={{
-              fontSize: "15px",
-              color: "#475569",
+              fontSize: "19px",
+              color: "#4B463E",
               lineHeight: 1.6,
-              maxWidth: "880px",
-              margin: 0,
+              margin: "0 0 36px 0",
+              maxWidth: "760px",
             }}
           >
-            {language === "hi"
-              ? "भारत रक्षा भारतीय D2C ब्रांड्स के लिए ग्राहक दावों का स्वायत्त मूल्यांकन करता है। सटीक स्कोरिंग, एलएलएम जूरी विश्लेषण, रेज़रपे बैंक निपटान, शिपराकेट डिजिटल वजन प्रमाण पत्र, तथा अपरिवर्तनीय यूपीआई रिफंड भेजने से पहले ऑपरेटर की अनिवार्य मानवीय स्वीकृति।"
-              : "BharatRaksha turns chaotic customer complaints into verified forensic dossiers that protect Indian D2C merchants. Deterministic scoring, LLM juror reasoning, Razorpay settlement verification, Shiprocket weight certificates, and mandatory human operator approval before any rupee is refunded."}
+            {isHi
+              ? "जब ग्राहक 'पैसे कट गए' या 'पार्सल खाली निकला' का दावा करते हैं, तो भारत रक्षा का 3-ज्यूरर एलएलएम स्वार्म सीधे रेज़रपे यूपीआई RRN, शिपराकेट वजन प्रमाण पत्र, और डिलीवरी ओटीपी टेलीमेट्री की निष्पक्ष जांच करता है। प्रत्येक रिफंड से पहले मानवीय स्वीकृति अनिवार्य है।"
+              : "When customers claim 'money debited twice' or 'empty box delivered', BharatRaksha's 3-juror LLM swarm cross-examines live Razorpay UPI RRN clearing, Shiprocket warehouse dispatch scale weights, and doorstep OTP telemetry. Every single payout requires human sign-off."}
           </p>
-        </section>
 
-        {/* METRICS ROW */}
+          {/* Hero CTAs */}
+          <div style={{ display: "flex", gap: "14px", flexWrap: "wrap", alignItems: "center" }}>
+            <Link
+              href="/dashboard"
+              style={{
+                fontSize: "15px",
+                fontWeight: 700,
+                backgroundColor: "#C93A1B",
+                color: "#FFFFFF",
+                padding: "14px 28px",
+                borderRadius: "6px",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span>{isHi ? "लाइव डेमो आज़माएं" : "Try the Live Demo"}</span>
+              <span>→</span>
+            </Link>
+
+            <Link
+              href="/raise-issue"
+              style={{
+                fontSize: "15px",
+                fontWeight: 700,
+                backgroundColor: "#FFFFFF",
+                color: "#1A1A1A",
+                padding: "14px 28px",
+                borderRadius: "6px",
+                textDecoration: "none",
+                border: "1.5px solid #DECFC0",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span>📝</span>
+              <span>{isHi ? "ग्राहक शिकायत पोर्टल" : "Raise an Issue"}</span>
+            </Link>
+
+            <Link
+              href="/how-to-use"
+              style={{
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "#755E46",
+                padding: "14px 18px",
+                textDecoration: "underline",
+                textUnderlineOffset: "4px",
+              }}
+            >
+              {isHi ? "यह कैसे काम करता है?" : "How it works guide"}
+            </Link>
+          </div>
+
+          {/* Quick proof stats bar */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: "24px",
+              marginTop: "48px",
+              paddingTop: "32px",
+              borderTop: "1px solid #E6DFD5",
+            }}
+          >
+            <div>
+              <div style={{ fontFamily: "var(--font-serif, Georgia, serif)", fontSize: "32px", color: "#1A1A1A" }}>
+                100%
+              </div>
+              <div style={{ fontSize: "12px", color: "#755E46", fontWeight: 600, textTransform: "uppercase" }}>
+                {isHi ? "मानवीय स्वीकृति द्वार" : "Human Approval Gate"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "var(--font-serif, Georgia, serif)", fontSize: "32px", color: "#C93A1B" }}>
+                12 Digits
+              </div>
+              <div style={{ fontSize: "12px", color: "#755E46", fontWeight: 600, textTransform: "uppercase" }}>
+                {isHi ? "यूपीआई RRN समाधान" : "UPI RRN Reconciliation"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "var(--font-serif, Georgia, serif)", fontSize: "32px", color: "#1A1A1A" }}>
+                3 Jurors
+              </div>
+              <div style={{ fontSize: "12px", color: "#755E46", fontWeight: 600, textTransform: "uppercase" }}>
+                {isHi ? "एलएलएम साक्ष्य परीक्षण" : "LLM Evidence Swarm"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "var(--font-serif, Georgia, serif)", fontSize: "32px", color: "#1A1A1A" }}>
+                ₹0.00
+              </div>
+              <div style={{ fontSize: "12px", color: "#755E46", fontWeight: 600, textTransform: "uppercase" }}>
+                {isHi ? "बिना पुष्टि के रिफंड" : "Silent Auto-Payouts"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. HOW IT WORKS — 3-STEP INFOGRAPHIC SECTION */}
+      <section
+        style={{
+          borderTop: "1px solid #E6DFD5",
+          borderBottom: "1px solid #E6DFD5",
+          backgroundColor: "#FFFFFF",
+          padding: "64px 32px",
+        }}
+      >
+        <div style={{ maxWidth: "1240px", margin: "0 auto" }}>
+          <div style={{ marginBottom: "36px" }}>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 800,
+                color: "#C93A1B",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
+              {isHi ? "3-चरणीय स्वायत्त प्रक्रिया" : "THE 3-STEP FLOW"}
+            </span>
+            <h2
+              style={{
+                fontFamily: "var(--font-serif, Georgia, serif)",
+                fontSize: "36px",
+                fontWeight: 400,
+                color: "#1A1A1A",
+                margin: "8px 0 12px 0",
+              }}
+            >
+              {isHi ? "दावा आने से लेकर निर्णय तक की यात्रा" : "From customer grievance to verified resolution"}
+            </h2>
+            <p style={{ fontSize: "15px", color: "#5A554E", maxWidth: "680px", margin: 0 }}>
+              {isHi
+                ? "पारंपरिक ई-कॉमर्स बिना जांचे रिफंड दे देता है। भारत रक्षा हर दावे की गहराई से पड़ताल करता है।"
+                : "Traditional stores either blindly refund or stall buyers for weeks. BharatRaksha investigates immediately and protects seller margins."}
+            </p>
+          </div>
+
+          {/* Infographic Visual Asset */}
+          <div
+            style={{
+              padding: "24px",
+              backgroundColor: "#FBF9F5",
+              border: "1.5px solid #E6DFD5",
+              borderRadius: "8px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+            }}
+          >
+            <img
+              src="/assets/flow-diagram.svg"
+              alt="BharatRaksha 3-Step Flow Diagram"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 4. THE 3-JUROR SWARM ARCHITECTURE */}
+      <section
+        style={{
+          maxWidth: "1240px",
+          margin: "0 auto",
+          padding: "72px 32px",
+        }}
+      >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "16px",
-            marginBottom: "32px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+            gap: "48px",
+            alignItems: "center",
           }}
         >
-          {/* Card 1: Total Claims */}
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              padding: "20px",
-              borderRadius: "14px",
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-            }}
-          >
-            <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
-              {t.metric_total_claims}
-            </div>
-            <div style={{ fontSize: "28px", fontWeight: 900, color: "#0f172a", marginTop: "4px" }}>
-              {loading ? <span style={{ color: "#94a3b8" }}>—</span> : metrics.totalClaims}
-            </div>
-          </div>
-
-          {/* Card 2: Awaiting Human Approval */}
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              padding: "20px",
-              borderRadius: "14px",
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-            }}
-          >
-            <div style={{ fontSize: "11px", fontWeight: 700, color: "#d97706", textTransform: "uppercase" }}>
-              {t.metric_human_locked}
-            </div>
-            <div style={{ fontSize: "28px", fontWeight: 900, color: "#d97706", marginTop: "4px" }}>
-              {loading ? <span style={{ color: "#94a3b8" }}>—</span> : metrics.humanLockedCount}
-            </div>
-          </div>
-
-          {/* Card 3: Fraud Prevented */}
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              padding: "20px",
-              borderRadius: "14px",
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-            }}
-          >
-            <div style={{ fontSize: "11px", fontWeight: 700, color: "#e11d48", textTransform: "uppercase" }}>
-              {t.metric_fraud_prevented}
-            </div>
-            <div style={{ fontSize: "28px", fontWeight: 900, color: "#e11d48", marginTop: "4px" }}>
-              {loading ? <span style={{ color: "#94a3b8" }}>—</span> : `₹${fraudPreventedInr}`}
-            </div>
-          </div>
-
-          {/* Card 4: Auto-Refund Ceiling */}
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              padding: "20px",
-              borderRadius: "14px",
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-            }}
-          >
-            <div style={{ fontSize: "11px", fontWeight: 700, color: "#059669", textTransform: "uppercase" }}>
-              {language === "hi" ? "ऑटो-रिफंड सीमा" : "Auto-Refund Ceiling"}
-            </div>
-            <div style={{ fontSize: "28px", fontWeight: 900, color: "#059669", marginTop: "4px" }}>
-              {loading ? <span style={{ color: "#94a3b8" }}>—</span> : "₹0.00"}
-            </div>
-            <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-              {language === "hi" ? "प्रत्येक रिफंड से पहले मानवीय स्वीकृति अनिवार्य" : "Human approval required before every refund"}
-            </div>
-          </div>
-        </div>
-
-        {/* TRANSACTION LIST SECTION */}
-        <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
           <div>
-            <h2 style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", margin: 0 }}>
-              {language === "hi" ? "यूपीआई दावा एवं रिफंड इतिहास" : "Adjudicated Claim Ledger"}
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 800,
+                color: "#C93A1B",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
+              {isHi ? "स्वार्म वास्तुकला" : "SWARM ARCHITECTURE"}
+            </span>
+            <h2
+              style={{
+                fontFamily: "var(--font-serif, Georgia, serif)",
+                fontSize: "36px",
+                fontWeight: 400,
+                color: "#1A1A1A",
+                margin: "8px 0 16px 0",
+                lineHeight: 1.15,
+              }}
+            >
+              {isHi ? "3 एलएलएम ज्यूरर और गणितीय अंक प्रणाली" : "Three LLM Jurors with proportional score math"}
             </h2>
-            <p style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 0 0" }}>
-              {language === "hi"
-                ? "टेलीग्राम बॉट, रेज़रपे RRN तथा शिपराकेट AWB टेलीमेट्री से सत्यापित मामले"
-                : "Seeded and real claims evaluated live with 3-juror audit & human gate"}
+            <p style={{ fontSize: "15px", color: "#4B463E", lineHeight: 1.6, marginBottom: "20px" }}>
+              {isHi
+                ? "प्रत्येक दावा तीन स्वतंत्र विशेषज्ञों द्वारा परखा जाता है (Qwen 30B via Token Factory)। अंक प्रणाली हेयर-नीमेयर (Largest-Remainder) विधि से विभाजित की जाती है ताकि प्रत्येक ज्यूरर का योगदान अंतिम स्कोर के बिल्कुल बराबर रहे।"
+                : "Each case is evaluated across three isolated perspectives by Qwen 30B via Token Factory. Juror point contributions are distributed via Hare-Niemeyer proportional allocation so the displayed juror breakdown equals the exact verdict score."}
             </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ padding: "14px 18px", backgroundColor: "#FFFFFF", border: "1px solid #E6DFD5", borderRadius: "6px" }}>
+                <strong style={{ color: "#1A1A1A", fontSize: "14px" }}>Juror 1: Gateway State Auditor</strong>
+                <div style={{ fontSize: "13px", color: "#5A554E", marginTop: "3px" }}>
+                  Verifies Razorpay settlement status, checks for duplicate captures on the 12-digit RRN, and eliminates false double-debit claims.
+                </div>
+              </div>
+
+              <div style={{ padding: "14px 18px", backgroundColor: "#FFFFFF", border: "1px solid #E6DFD5", borderRadius: "6px" }}>
+                <strong style={{ color: "#1A1A1A", fontSize: "14px" }}>Juror 2: Order &amp; Fulfillment Forensics</strong>
+                <div style={{ fontSize: "13px", color: "#5A554E", marginTop: "3px" }}>
+                  Compares dispatch weighing scale certificates against courier transit logs and doorstep OTP delivery confirmation to expose empty-box fraud.
+                </div>
+              </div>
+
+              <div style={{ padding: "14px 18px", backgroundColor: "#FFFFFF", border: "1px solid #E6DFD5", borderRadius: "6px" }}>
+                <strong style={{ color: "#1A1A1A", fontSize: "14px" }}>Juror 3: Buyer History &amp; Guardrail Auditor</strong>
+                <div style={{ fontSize: "13px", color: "#5A554E", marginTop: "3px" }}>
+                  Audits customer refund velocity, past return frequency, and enforces merchant policy thresholds before unlocking goodwill settlements.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div
+              style={{
+                padding: "20px",
+                backgroundColor: "#FFFFFF",
+                border: "1.5px solid #E6DFD5",
+                borderRadius: "8px",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.03)",
+              }}
+            >
+              <img
+                src="/assets/swarm-architecture.svg"
+                alt="BharatRaksha 3-Juror Swarm Architecture"
+                style={{ width: "100%", height: "auto", display: "block" }}
+              />
+            </div>
           </div>
         </div>
+      </section>
 
-        {loading ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "#64748b" }}>Loading UPI transactions...</div>
-        ) : (
-          <UpiTransactionList cases={cases} onCaseUpdated={handleCaseUpdated} />
-        )}
-
-        {/* GROUND TRUTH FOOTER NOTICE */}
+      {/* 5. TELEGRAM MERCHANT CONTROLLER */}
+      <section
+        style={{
+          borderTop: "1px solid #E6DFD5",
+          borderBottom: "1px solid #E6DFD5",
+          backgroundColor: "#FBF9F5",
+          padding: "72px 32px",
+        }}
+      >
         <div
           style={{
-            marginTop: "48px",
-            padding: "18px 22px",
-            backgroundColor: "#f1f5f9",
-            borderRadius: "12px",
-            border: "1px solid #e2e8f0",
-            fontSize: "12px",
-            color: "#475569",
-            lineHeight: 1.6,
+            maxWidth: "1240px",
+            margin: "0 auto",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+            gap: "48px",
+            alignItems: "center",
           }}
         >
-          <strong style={{ color: "#0f172a" }}>📌 {language === "hi" ? "महत्वपूर्ण यूपीआई वास्तविकता (Ground Truth)" : "Important UPI Ground Truth"}:</strong>{" "}
-          {t.upi_truth_notice}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={{ maxWidth: "340px", width: "100%" }}>
+              <img
+                src="/assets/telegram-bot-mockup.svg"
+                alt="Telegram Merchant Bot Interactive Interface"
+                style={{ width: "100%", height: "auto", display: "block", filter: "drop-shadow(0 10px 24px rgba(0,0,0,0.08))" }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 800,
+                color: "#C93A1B",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
+              {isHi ? "टेलीग्राम मर्चेंट बॉट" : "TELEGRAM MERCHANT CONTROLLER"}
+            </span>
+            <h2
+              style={{
+                fontFamily: "var(--font-serif, Georgia, serif)",
+                fontSize: "36px",
+                fontWeight: 400,
+                color: "#1A1A1A",
+                margin: "8px 0 16px 0",
+                lineHeight: 1.15,
+              }}
+            >
+              {isHi ? "बिना किसी वेबसाइट के पूरे दावे टेलीग्राम से प्रबंधित करें" : "Run the entire shield from your phone — no login required"}
+            </h2>
+            <p style={{ fontSize: "15px", color: "#4B463E", lineHeight: 1.6, marginBottom: "24px" }}>
+              {isHi
+                ? "जब भी ग्राहक कोई दावा दर्ज करता है, मर्चेंट को उनके टेलीग्राम पर तुरंत एक अलर्ट संदेश प्राप्त होता है। एक टैप में स्वीकृति (Approve), अस्वीकृति (Reject), या ज्यूरर विवरण (Details) देखा जा सकता है।"
+                : "The merchant doesn't need to stay glued to a computer. Whenever a buyer submits a claim in a support group or via the bot, an interactive alert arrives in the merchant's personal Telegram DM with instant 1-tap action buttons."}
+            </p>
+
+            <ul style={{ paddingLeft: "20px", fontSize: "14px", color: "#4B463E", lineHeight: 1.8 }}>
+              <li>
+                <strong>Instant Alert:</strong> Case ID, Order ID, 12-digit UPI RRN, Verdict, and Recommended Refund.
+              </li>
+              <li>
+                <strong>1-Tap Payout:</strong> Tapping <code>Approve</code> triggers the live Razorpay UPI refund instantly.
+              </li>
+              <li>
+                <strong>Group Privacy Protected:</strong> Public groups receive brief acknowledgements and outcomes only; private merchant controls stay in personal DM.
+              </li>
+              <li>
+                <strong>Zero Setup Hassle:</strong> No Meta WhatsApp business verification hurdles. Start via Telegram BotFather in 60 seconds.
+              </li>
+            </ul>
+
+            <div style={{ marginTop: "24px" }}>
+              <Link
+                href="/how-to-use"
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  color: "#C93A1B",
+                  textDecoration: "underline",
+                  textUnderlineOffset: "4px",
+                }}
+              >
+                {isHi ? "टेलीग्राम बॉट सेटअप गाइड पढ़ें →" : "Read Telegram bot connection runbook →"}
+              </Link>
+            </div>
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* 6. LIVE DEMO SEEDED CASES SECTION */}
+      <section
+        style={{
+          maxWidth: "1240px",
+          margin: "0 auto",
+          padding: "72px 32px",
+        }}
+      >
+        <div style={{ marginBottom: "36px" }}>
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "#C93A1B",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            {isHi ? "सीडेड टेस्ट मामले" : "LIVE VERIFIED CASES"}
+          </span>
+          <h2
+            style={{
+              fontFamily: "var(--font-serif, Georgia, serif)",
+              fontSize: "36px",
+              fontWeight: 400,
+              color: "#1A1A1A",
+              margin: "8px 0 12px 0",
+            }}
+          >
+            {isHi ? "3 प्रमुख ई-कॉमर्स विवाद परिदृश्य" : "Explore the three foundational D2C scenarios"}
+          </h2>
+          <p style={{ fontSize: "15px", color: "#5A554E", maxWidth: "700px", margin: 0 }}>
+            {isHi
+              ? "प्रत्येक परिदृश्य को रेज़रपे और शिपराकेट के वास्तविक डेटा के साथ परखा गया है। डैशबोर्ड में किसी भी मामले पर क्लिक करके एलएलएम स्वार्म को लाइव चलाएं।"
+              : "Each scenario reflects real-world Indian UPI commerce challenges. Open any case in the dashboard to inspect the evidence dossier and run the LLM swarm live."}
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px" }}>
+          {/* Case A */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1.5px solid #E6DFD5",
+              borderRadius: "8px",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+            }}
+          >
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <span style={{ fontSize: "12px", fontFamily: "monospace", fontWeight: 700, color: "#755E46" }}>
+                  UPI-CASE-A
+                </span>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    backgroundColor: "#FEE2E2",
+                    color: "#991B1B",
+                    padding: "3px 8px",
+                    borderRadius: "4px",
+                  }}
+                >
+                  82/100 REJECT
+                </span>
+              </div>
+              <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1A1A1A", margin: "0 0 8px 0" }}>
+                Double Debit &amp; Empty Box
+              </h3>
+              <div style={{ fontSize: "13px", color: "#C93A1B", fontWeight: 600, marginBottom: "8px" }}>
+                Claimed: ₹3,200.00 • Recommended Refund: ₹0.00
+              </div>
+              <p style={{ fontSize: "13px", color: "#5A554E", lineHeight: 1.5, margin: "0 0 16px 0" }}>
+                Buyer claimed money was debited twice and received an empty box. Razorpay shows a single valid capture; Shiprocket shows 0.42kg dispatch matched courier delivery scale with verified doorstep OTP.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/UPI-CASE-A"
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#1A1A1A",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 14px",
+                backgroundColor: "#F7F3EA",
+                borderRadius: "4px",
+                border: "1px solid #DECFC0",
+                width: "fit-content",
+              }}
+            >
+              <span>Inspect Case A</span>
+              <span>→</span>
+            </Link>
+          </div>
+
+          {/* Case B */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1.5px solid #E6DFD5",
+              borderRadius: "8px",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+            }}
+          >
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <span style={{ fontSize: "12px", fontFamily: "monospace", fontWeight: 700, color: "#755E46" }}>
+                  UPI-CASE-B
+                </span>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    backgroundColor: "#FEF3C7",
+                    color: "#92400E",
+                    padding: "3px 8px",
+                    borderRadius: "4px",
+                  }}
+                >
+                  60/100 OFFER
+                </span>
+              </div>
+              <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1A1A1A", margin: "0 0 8px 0" }}>
+                Cosmetic Damage on Premium Good
+              </h3>
+              <div style={{ fontSize: "13px", color: "#92400E", fontWeight: 600, marginBottom: "8px" }}>
+                Claimed: ₹1,200.00 • Goodwill Refund: ₹300.00
+              </div>
+              <p style={{ fontSize: "13px", color: "#5A554E", lineHeight: 1.5, margin: "0 0 16px 0" }}>
+                Buyer reported scratched surface on a luxury leather wallet. Order was delivered in full; Juror 3 recommends a 25% goodwill partial settlement (₹300.00) locked behind mandatory human gate.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/UPI-CASE-B"
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#1A1A1A",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 14px",
+                backgroundColor: "#F7F3EA",
+                borderRadius: "4px",
+                border: "1px solid #DECFC0",
+                width: "fit-content",
+              }}
+            >
+              <span>Inspect Case B</span>
+              <span>→</span>
+            </Link>
+          </div>
+
+          {/* Case C */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1.5px solid #E6DFD5",
+              borderRadius: "8px",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+            }}
+          >
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <span style={{ fontSize: "12px", fontFamily: "monospace", fontWeight: 700, color: "#755E46" }}>
+                  UPI-CASE-C
+                </span>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    backgroundColor: "#DCFCE7",
+                    color: "#166534",
+                    padding: "3px 8px",
+                    borderRadius: "4px",
+                  }}
+                >
+                  15/100 REFUND
+                </span>
+              </div>
+              <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#1A1A1A", margin: "0 0 8px 0" }}>
+                Lost in Transit via Courier Hub
+              </h3>
+              <div style={{ fontSize: "13px", color: "#166534", fontWeight: 600, marginBottom: "8px" }}>
+                Claimed: ₹2,499.00 • Full Refund: ₹2,499.00
+              </div>
+              <p style={{ fontSize: "13px", color: "#5A554E", lineHeight: 1.5, margin: "0 0 16px 0" }}>
+                Shiprocket AWB telemetry indicates package stalled at regional transit hub for &gt;7 days. Swarm recommends 100% refund, locked awaiting merchant authorization before bank execution.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/UPI-CASE-C"
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#1A1A1A",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 14px",
+                backgroundColor: "#F7F3EA",
+                borderRadius: "4px",
+                border: "1px solid #DECFC0",
+                width: "fit-content",
+              }}
+            >
+              <span>Inspect Case C</span>
+              <span>→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 7. HACKATHON & TEAM CREDITS */}
+      <section
+        style={{
+          borderTop: "1px solid #E6DFD5",
+          backgroundColor: "#FBF9F5",
+          padding: "64px 32px",
+        }}
+      >
+        <div style={{ maxWidth: "1240px", margin: "0 auto" }}>
+          <div
+            style={{
+              padding: "32px",
+              backgroundColor: "#FFFFFF",
+              border: "1.5px solid #E6DFD5",
+              borderRadius: "8px",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                gap: "36px",
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    color: "#C93A1B",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  HACKATHON TRACK
+                </span>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-serif, Georgia, serif)",
+                    fontSize: "26px",
+                    color: "#1A1A1A",
+                    margin: "8px 0 12px 0",
+                  }}
+                >
+                  AgentX 2026 — Problem Statement PS-04
+                </h3>
+                <p style={{ fontSize: "14px", color: "#5A554E", lineHeight: 1.6, margin: "0 0 12px 0" }}>
+                  <strong>PS-04: Autonomous Support Agent for Online Sellers.</strong> Built to safeguard Indian merchants against payment clearing disputes, doorstep delivery fraud, and consumer forum arbitration penalties.
+                </p>
+                <div style={{ fontSize: "12px", color: "#755E46" }}>
+                  • <strong>Idea Round:</strong> November 2, 2026<br />
+                  • <strong>Build Round:</strong> November 11–12, 2026
+                </div>
+              </div>
+
+              <div>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    color: "#C93A1B",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  THE BUILD TEAM
+                </span>
+                <h3
+                  style={{
+                    fontFamily: "var(--font-serif, Georgia, serif)",
+                    fontSize: "26px",
+                    color: "#1A1A1A",
+                    margin: "8px 0 12px 0",
+                  }}
+                >
+                  Core Contributors
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", color: "#333333" }}>
+                  <div>
+                    <strong>Dhyey Patel</strong> — <span style={{ color: "#C93A1B", fontWeight: 700 }}>Team Leader &amp; Architect</span>
+                  </div>
+                  <div>
+                    <strong>Snehil Sahay</strong> — Swarm &amp; Logistics Forensics
+                  </div>
+                  <div>
+                    <strong>Kislay Kumar</strong> — Gateway &amp; Telemetry Integrations
+                  </div>
+                  <div>
+                    <strong>Kartikey Singh</strong> — Adjudication &amp; Policy Engineering
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. FOOTER */}
+      <footer
+        style={{
+          borderTop: "1px solid #E6DFD5",
+          backgroundColor: "#F7F3EA",
+          padding: "40px 32px 48px 32px",
+          fontSize: "13px",
+          color: "#755E46",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1240px",
+            margin: "0 auto",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "20px",
+          }}
+        >
+          <div>
+            <span style={{ fontFamily: "var(--font-serif, Georgia, serif)", fontSize: "18px", color: "#1A1A1A", fontWeight: 700 }}>
+              BharatRaksha
+            </span>{" "}
+            — Autonomous UPI Claim Defense Shield.
+            <div style={{ fontSize: "12px", marginTop: "4px" }}>
+              MIT License • © 2026 Dhyey Patel &amp; Team.
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
+            <Link href="/dashboard" style={{ color: "#1A1A1A", fontWeight: 600, textDecoration: "none" }}>
+              Dashboard
+            </Link>
+            <Link href="/raise-issue" style={{ color: "#1A1A1A", fontWeight: 600, textDecoration: "none" }}>
+              Raise Issue
+            </Link>
+            <Link href="/how-to-use" style={{ color: "#1A1A1A", fontWeight: 600, textDecoration: "none" }}>
+              How it Works
+            </Link>
+            <Link href="/terms" style={{ color: "#1A1A1A", fontWeight: 600, textDecoration: "none" }}>
+              Terms &amp; Disclaimers
+            </Link>
+            <a
+              href="https://github.com/DhyeyPatel007/bharat-raksha"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#C93A1B", fontWeight: 700, textDecoration: "none" }}
+            >
+              GitHub ↗
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

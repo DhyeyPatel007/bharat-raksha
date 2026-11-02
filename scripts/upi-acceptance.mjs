@@ -1,7 +1,7 @@
-// PHALANX UPI — End-to-End Localhost Acceptance Verifier
-// Tests all 6 steps from prompt section 7 against a live running server on port 3100.
+// BharatRaksha UPI — End-to-End Acceptance Verifier
+// Tests all API and frontend routes against a live running server.
 
-const base = process.env.PHALANX_BASE_URL || "http://localhost:3100";
+const base = process.env.PHALANX_BASE_URL || process.env.BASE_URL || "http://localhost:3100";
 
 async function testAcceptance() {
   console.log("=================================================");
@@ -19,7 +19,7 @@ async function testAcceptance() {
   console.log(`[PASS] Case A: score=${caseA.score}, verdict=${caseA.verdict}, status=${caseA.status}`);
   if (caseA.score !== 82 || caseA.verdict !== "REJECT_CLAIM") throw new Error("Case A mismatch");
 
-  // Step 3: Case B verification (Now AWAITING_HUMAN_APPROVAL under default 0 auto-refund ceiling)
+  // Step 3: Case B verification
   const caseB = casesData.cases.find((c) => c.case_id === "UPI-CASE-B");
   console.log(
     `[PASS] Case B: score=${caseB.score}, verdict=${caseB.verdict}, refund=${caseB.recommended_refund_paise} paise, status=${caseB.status}`
@@ -42,7 +42,7 @@ async function testAcceptance() {
     throw new Error("PDF route failed");
   }
 
-  // Step 6: Step 5 acceptance check — Unapproved refund on Case C MUST return 403!
+  // Step 6: Unapproved refund on Case C MUST return 403
   const resUnapproved = await fetch(`${base}/api/upi/refund`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -132,7 +132,7 @@ async function testAcceptance() {
     throw new Error("Expected HARD_BLOCK_FAILED_PAYMENT");
   }
 
-  // Step 10b: Telegram Bot Webhook Intake Test
+  // Step 10b: Telegram Bot Webhook Intake Test (valid RRN)
   const resTelegram = await fetch(`${base}/api/upi/webhooks/telegram`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -156,6 +156,67 @@ async function testAcceptance() {
   console.log(`[PASS] Shiprocket Mock Server -> HTTP ${resMockSR.status}, AWB status=${awbStatus}`);
   if (resMockSR.status !== 200 || awbStatus !== "DELIVERED") {
     throw new Error("Shiprocket mock server check failed");
+  }
+
+  // Step 12: Landing page loads at `/` (200, BharatRaksha, no PHALANX text)
+  const resLanding = await fetch(`${base}/`);
+  const landingHtml = await resLanding.text();
+  console.log(`[PASS] GET / -> HTTP ${resLanding.status}`);
+  if (resLanding.status !== 200) throw new Error("Landing page / failed to load");
+  if (!landingHtml.includes("BharatRaksha")) throw new Error("Landing page missing BharatRaksha brand");
+  if (landingHtml.includes("PHALANX")) throw new Error("Landing page contains forbidden PHALANX text");
+
+  // Step 13: Dashboard loads at `/dashboard`
+  const resDashboard = await fetch(`${base}/dashboard`);
+  const dashboardHtml = await resDashboard.text();
+  console.log(`[PASS] GET /dashboard -> HTTP ${resDashboard.status}`);
+  if (resDashboard.status !== 200) throw new Error("Dashboard failed to load");
+  if (!dashboardHtml.includes("BharatRaksha")) throw new Error("Dashboard missing BharatRaksha");
+
+  // Step 14: `/how-to-use` and `/terms` load (200)
+  const resGuide = await fetch(`${base}/how-to-use`);
+  console.log(`[PASS] GET /how-to-use -> HTTP ${resGuide.status}`);
+  if (resGuide.status !== 200) throw new Error("/how-to-use failed to load");
+
+  const resTerms = await fetch(`${base}/terms`);
+  console.log(`[PASS] GET /terms -> HTTP ${resTerms.status}`);
+  if (resTerms.status !== 200) throw new Error("/terms failed to load");
+
+  // Step 15: `/raise-issue` page loads
+  const resRaise = await fetch(`${base}/raise-issue`);
+  console.log(`[PASS] GET /raise-issue -> HTTP ${resRaise.status}`);
+  if (resRaise.status !== 200) throw new Error("/raise-issue page failed to load");
+
+  // Step 16: Web intake rejects unknown RRN (ORDER_NOT_FOUND guard)
+  const resWebUnknown = await fetch(`${base}/api/upi/cases/web-intake`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      rrn: "000999888777",
+      description: "Non-existent payment test",
+    }),
+  });
+  const unknownData = await resWebUnknown.json();
+  console.log(`[PASS] Web Intake unknown RRN -> HTTP ${resWebUnknown.status} (${unknownData.status})`);
+  if (resWebUnknown.status !== 404 || unknownData.status !== "order_not_found") {
+    throw new Error(`Expected 404 order_not_found, got ${resWebUnknown.status}`);
+  }
+
+  // Step 17: Web intake submits valid case
+  const resWebValid = await fetch(`${base}/api/upi/cases/web-intake`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      rrn: "631518440293",
+      orderId: "ORD-KRY-8802",
+      description: "Item scratched in shipping transit",
+      phone: "+919876543210",
+    }),
+  });
+  const validData = await resWebValid.json();
+  console.log(`[PASS] Web Intake valid RRN -> HTTP ${resWebValid.status}, caseId=${validData.case?.case_id}`);
+  if (resWebValid.status !== 201 || validData.status !== "ok" || !validData.case) {
+    throw new Error(`Expected 201 ok for valid web intake, got ${resWebValid.status}`);
   }
 
   console.log("\n=================================================");

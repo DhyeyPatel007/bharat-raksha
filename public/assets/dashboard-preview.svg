@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 440" width="100%" height="100%" fill="none">
+  <defs>
+    <style>
+      .browser-shell { fill: #FFFFFF; stroke: #D4C9BC; stroke-width: 1.5; rx: 8px; }
+      .browser-bar { fill: #F4EBE1; }
+      .app-bg { fill: #F8FAFC; }
+      .card { fill: #FFFFFF; stroke: #E2E8F0; rx: 8px; }
+      .badge-pass { fill: #ECFDF5; stroke: #A7F3D0; }
+      .badge-warn { fill: #FFFBEB; stroke: #FDE68A; }
+      .badge-reject { fill: #FFF1F2; stroke: #FECDD3; }
+      .txt-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; font-weight: 700; fill: #0F172A; }
+      .txt-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; fill: #64748B; }
+      .txt-mono { font-family: monospace; font-size: 11px; fill: #334155; }
+    </style>
+  </defs>
+
+  <!-- Browser Frame -->
+  <rect x="5" y="5" width="770" height="430" class="browser-shell" />
+  <rect x="5" y="5" width="770" height="34" class="browser-bar" />
+  <circle cx="24" cy="22" r="5" fill="#EF4444" />
+  <circle cx="40" cy="22" r="5" fill="#F59E0B" />
+  <circle cx="56" cy="22" r="5" fill="#10B981" />
+  <rect x="80" y="12" width="460" height="20" rx="4" fill="#FFFFFF" stroke="#E6DFD5" />
+  <text x="92" y="26" font-family="monospace" font-size="11px" fill="#755E46">https://bharatraksha.krynex.in/dashboard</text>
+
+  <!-- App Header -->
+  <rect x="5" y="39" width="770" height="48" fill="#FFFFFF" stroke="#E2E8F0" />
+  <text x="24" y="68" font-family="sans-serif" font-size="15px" font-weight="900" fill="#0F172A">🛡️ BharatRaksha (भारत रक्षा)</text>
+  <rect x="230" y="55" width="75" height="18" rx="9" class="badge-pass" />
+  <text x="240" y="68" font-family="sans-serif" font-size="10px" font-weight="700" fill="#059669">LIVE SHIELD</text>
+
+  <!-- 3 Summary Metrics -->
+  <rect x="24" y="100" width="220" height="60" class="card" />
+  <text x="38" y="120" class="txt-sub">TOTAL ADJUDICATED</text>
+  <text x="38" y="146" font-family="sans-serif" font-size="20px" font-weight="800" fill="#0F172A">3 Claims</text>
+
+  <rect x="280" y="100" width="220" height="60" class="card" />
+  <text x="294" y="120" class="txt-sub">FRAUD ATTEMPTS BLOCKED</text>
+  <text x="294" y="146" font-family="sans-serif" font-size="20px" font-weight="800" fill="#DC2626">₹3,200</text>
+
+  <rect x="536" y="100" width="220" height="60" class="card" />
+  <text x="550" y="120" class="txt-sub">HUMAN GATE ENFORCEMENT</text>
+  <text x="550" y="146" font-family="sans-serif" font-size="20px" font-weight="800" fill="#059669">100% Locked</text>
+
+  <!-- Case 1 (Case A) -->
+  <rect x="24" y="175" width="732" height="72" class="card" />
+  <rect x="36" y="187" width="46" height="46" rx="23" fill="#FEE2E2" />
+  <text x="50" y="216" font-family="sans-serif" font-size="18px">🛡️</text>
+  <text x="96" y="202" class="txt-title">UPI-CASE-A • RRN 631514892011</text>
+  <text x="96" y="222" class="txt-sub">Claim: Double Debit + Empty Box (₹3,200.00) • OTP Delivered (0.42kg)</text>
+  <rect x="540" y="193" width="90" height="24" rx="4" class="badge-reject" />
+  <text x="552" y="210" font-family="sans-serif" font-size="11px" font-weight="700" fill="#B91C1C">82/100 REJECT</text>
+  <rect x="640" y="193" width="104" height="24" rx="4" fill="#0F172A" />
+  <text x="654" y="209" font-family="sans-serif" font-size="11px" font-weight="700" fill="#FFFFFF">View Dossier →</text>
+
+  <!-- Case 2 (Case B) -->
+  <rect x="24" y="258" width="732" height="72" class="card" />
+  <rect x="36" y="270" width="46" height="46" rx="23" fill="#FEF3C7" />
+  <text x="50" y="299" font-family="sans-serif" font-size="18px">⚖️</text>
+  <text x="96" y="285" class="txt-title">UPI-CASE-B • RRN 631518440293</text>
+  <text x="96" y="305" class="txt-sub">Claim: Minor Scratch (₹1,200.00) • Goodwill Partial Resolution (₹300.00)</text>
+  <rect x="540" y="276" width="90" height="24" rx="4" class="badge-warn" />
+  <text x="555" y="293" font-family="sans-serif" font-size="11px" font-weight="700" fill="#B45309">60/100 OFFER</text>
+  <rect x="640" y="276" width="104" height="24" rx="4" fill="#0F172A" />
+  <text x="654" y="292" font-family="sans-serif" font-size="11px" font-weight="700" fill="#FFFFFF">View Dossier →</text>
+
+  <!-- Case 3 (Case C) -->
+  <rect x="24" y="341" width="732" height="72" class="card" />
+  <rect x="36" y="353" width="46" height="46" rx="23" fill="#DBEAFE" />
+  <text x="50" y="382" font-family="sans-serif" font-size="18px">📦</text>
+  <text x="96" y="368" class="txt-title">UPI-CASE-C • RRN 631519773104</text>
+  <text x="96" y="388" class="txt-sub">Claim: Lost in Transit (₹2,499.00) • Courier Stalled > 7 Days</text>
+  <rect x="540" y="359" width="90" height="24" rx="4" class="badge-pass" />
+  <text x="548" y="376" font-family="sans-serif" font-size="11px" font-weight="700" fill="#047857">15/100 REFUND</text>
+  <rect x="640" y="359" width="104" height="24" rx="4" fill="#0F172A" />
+  <text x="654" y="375" font-family="sans-serif" font-size="11px" font-weight="700" fill="#FFFFFF">View Dossier →</text>
+</svg>
